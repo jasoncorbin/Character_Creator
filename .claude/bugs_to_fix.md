@@ -2,11 +2,13 @@
 
 Tracked issues for future resolution. Status as of 2026-05-31.
 
+> **⏸️ DEFERRED — CC version only (2026-06-09).** Every item currently in this file pertains to the original **`BP_CC_Character`** track (`BPC_AttackSystem`, `ABP_NoWeapon`), **not** the active RPG character (`BP_RPG_PlayerCharacter`). All are **set to IGNORE until we return to CC-version work.** Do not action these while building the RPG stance system.
+
 ---
 
 ## Bug 3 — Two parallel hit-detection systems (no per-actor dedupe)
 
-**Status:** Latent / low priority. **Not currently double-hitting in playtest**, but the structure allows it. Revisit before shipping or before adding new attack types.
+**Status:** ⏸️ IGNORE until CC-version work resumes (CC track). Latent / low priority. **Not currently double-hitting in playtest**, but the structure allows it. Revisit before shipping or before adding new attack types.
 
 **Location:** `BPC_AttackSystem` EventGraph (`/Game/CharacterCreator/BluePrints/BPC_AttackSystem`).
 
@@ -49,6 +51,6 @@ Triggered by anim notifies on the combo montages: `BP_Notify_StickTrace` (notify
 
 ## Minor — Divide by zero warning in ABP_NoWeapon
 
-**Status:** Cosmetic. Low priority.
+**Status:** ⏸️ IGNORE until CC-version work resumes (CC track). Cosmetic. Low priority.
 
 Runtime warning during PIE: `Script Msg: Divide by zero: Divide_DoubleDouble` from `ABP_NoWeapon_C` (the no-weapon AnimBP). Likely a speed/normalize/direction calc dividing by a zero magnitude when stationary. Add a guard (check denominator != 0, or use SafeDivide / a small epsilon) in the AnimBP's AnimGraph or EventGraph math.

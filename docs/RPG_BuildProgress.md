@@ -3,6 +3,13 @@
 Running log of build sessions for the new `/Game/RPG/` strafe-movement, 8-stance player character.
 Reference architecture: `docs/RPG_CharacterArchitecture.md` (approved).
 
+> ## ▶ RESUME HERE (next session) — last updated 2026-06-10
+> **SingleSword stance: A–E complete. Start with Sub-step F (Combat).**
+> Done so far: locomotion blendspace (A), AnimBP loco (B), jump state machine (C), directional dodge + standing backstep (D, on **LeftControl**, PIE-confirmed), weapon attach (E — `Sword` mesh `OHS03_Sword_SM` on **Mesh → Weapon_R** socket, in-hand confirmed). All saved to disk.
+> **NEXT: Sub-step F — Combat.** Attack/combo montages on a slot; plan UpperBody slot + Layered Blend per Bone (spine) for attack-while-strafing (arch §4b); `DefaultSlot` already exists from dodge. First action: scope SingleSword attack clips in `/Game/RPGTinyHeroWavePBR/Animation/SingleSword/` (~16 attacks) and inspect ABP_RPG_Player's current AnimGraph slot setup before changing anything.
+> After F: Sub-step G (target-lock port from BP_CC_Character). Then replicate pattern to the other 7 stances.
+> Editor must be running with the MCPUnreal plugin (port 8090) for live inspection. Full detail in the latest session entry at the bottom of this file.
+
 ---
 
 ## Session 2026-06-02 — Foundations milestone
@@ -56,3 +63,32 @@ OPEN / TO VERIFY FIRST:
 TOOLING NOTES (for next session efficiency):
 - MCP/Python CANNOT: set EnhancedInputAction node's InputAction ref, set object-ref pins (e.g. Mapping Context), spawn K2/AnimGraph nodes, set IMC modifiers, position graph nodes, or edit UserDefinedEnum values. All of these are editor-dropdown/drag actions → use guided manual steps. MCP/Python CAN: create assets, set CDO/component properties (CMC flags, mesh, camera), assign Anim Class, build folder structure, create levels + actors, and verify graphs via blueprint_query.
 - Editor connection dropped once during new_level but recovered; re-saved and verified all assets on disk.
+
+---
+
+## Session 2026-06-09→10 — Dodge regression fix + Sub-step E (weapon attach)
+STATUS: Dodge rolling RESTORED + **PIE-CONFIRMED by user**. Sub-step E (SingleSword weapon attach) DONE + **in-hand confirmed by user**. Both persisted to disk.
+
+DODGE REGRESSION (rolling stopped working on reload):
+- **Root cause:** the `LeftControl → IA_RPG_Dodge` binding in `IMC_RPG_Default` was live in-editor during the 6-04 PIE session but **never saved to the IMC asset** before the commit. On reload the binding was gone → no key fired the dodge. (Classic "worked in PIE, lost on reload" = unsaved IMC binding. The graph was fine.)
+- **Fix:** re-bound `IA_RPG_Dodge → LeftControl` and **SAVED the IMC to disk** this time (`IMC_RPG_Default.uasset` now tracked modified). Verified via input_ops get_bindings (7 bindings).
+- **Lesson reinforced:** MCP `input_ops bind_action` only sets the binding in editor memory — `git status` stays clean until you Save in-editor. Always Save the IMC after binding.
+- **Self-inflicted detour (reverted):** earlier this session the dodge graph was wrongly edited to "move-only" (deleted the standing BWD-backstep node) based on a serialization artifact — `blueprint_query get_graph` does NOT show object-ref pin defaults, so the assigned BWD montage read as "empty." Reverted `BP_RPG_PlayerCharacter.uasset` to commit 8fd4a95 (known-good). **Standing-still dodge = BWD backstep is BY DESIGN, not a bug.**
+
+SUB-STEP E — WEAPON ATTACH (DONE):
+- Attach point: skeleton ships a dedicated **`Weapon_R` socket** (parent bone `weapon_r`, child of `hand_r`; rel loc 0,0,0; rel rot roll **−103.49°** = pack's baked grip alignment). Other sockets: `Weapon_L`, `BackPack`, `Head`.
+- Added `Sword` StaticMeshComponent to `BP_RPG_PlayerCharacter`, parented to **Mesh → Weapon_R** socket, Static Mesh = `OHS03_Sword_SM`, zero local offset (socket roll handles grip). Compiled + saved (`BP_RPG_PlayerCharacter.uasset` modified on disk). Verified component + mesh via SubobjectDataSubsystem; user confirmed sword sits correctly in the right hand.
+- Manual add was needed: a Static Mesh Component must be **dragged onto Mesh** in the Components tree to become its child before the Parent Socket dropdown lists skeleton sockets.
+
+HOUSEKEEPING:
+- `.claude/bugs_to_fix.md`: both tracked bugs (`BPC_AttackSystem` dual-trace, `ABP_NoWeapon` divide-by-zero) tagged **⏸️ IGNORE until CC-version work resumes** — they're CC-track, not RPG.
+
+NEXT SESSION: Continue SingleSword stance —
+- **Sub-step F: Combat.** Attack/combo montages on a slot; plan UpperBody slot + Layered Blend per Bone (spine) for attack-while-strafing (arch §4b). `DefaultSlot` already exists from dodge.
+- **Sub-step G: Target-lock port** from BP_CC_Character (IA_TargetLock + sphere-trace + FindLookAt-on-Tick).
+- Polish backlog (deferred): verify 4 dodge directions face-correct; tune roll distance; foot-sliding (calibrate Speed axis / MaxWalkSpeed); JumpStart/JumpEnd; confirm sword follows hand during RM dodge in PIE.
+
+TOOLING NOTES (this session):
+- `blueprint_query get_graph` hides object-ref pin defaults (montage/mesh/asset refs read as empty) — never infer "unset" from it.
+- MCP `blueprint_modify` edits DO write to the `.uasset` on disk (not just editor memory) — treat as committed changes, not scratch.
+- `execute_script` stdout isn't returned by the tool — read prints via `get_output_log` (category LogPython). Skeleton `sockets` property is protected; enumerate bones/sockets via a transient `SkeletalMeshComponent` (`get_num_bones`/`get_bone_name`/`get_all_socket_names`).

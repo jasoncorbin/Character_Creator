@@ -3,12 +3,13 @@
 Running log of build sessions for the new `/Game/RPG/` strafe-movement, 8-stance player character.
 Reference architecture: `docs/RPG_CharacterArchitecture.md` (approved).
 
-> ## ▶ RESUME HERE (next session) — last updated 2026-06-14
-> **SingleSword stance COMPLETE end-to-end (A–G), all PIE-confirmed. The validated pattern is ready to replicate to the other 7 stances.**
+> ## ▶ RESUME HERE (next session) — last updated 2026-06-14 (stance-switch system added)
+> **SingleSword stance COMPLETE end-to-end (A–H) + STANCE-SWITCH FOUNDATION (Phase A) COMPLETE, all PIE-confirmed. Player can now cycle all 8 stances on `Q` and the weapon mesh swaps live (7/8 stances; bow deferred).**
+> **Stance-switch (Phase A, 2026-06-14):** `IA_RPG_SwitchStance`/**Q** → `(CurrentStance+1)%8` cycle. **`CurrentStance` is an `int`, NOT the `E_RPG_Stance` enum** — chosen deliberately because UE has no int→UserDefinedEnum conversion (blocks cycling/AnimGraph). The enum asset is kept only as the index legend (0=NoWeapon…7=BowAndArrow). ABP reads it as int (Update Animation) for a future **`Blend Poses by Int`** (NOT by Enum). Weapon swap = `ApplyStance` fn called on BeginPlay + after each switch: `Sword`(Weapon_R socket).SetStaticMesh(`StanceRightMeshes[idx]`) + `Weapon_L`(Weapon_L socket).SetStaticMesh(`StanceLeftMeshes[idx]`). Both arrays are `StaticMesh` arrays on the char, populated via Python. Right: [_,OHS03,THS01,OHS03,OHS03,Spear01,Wand01,_]; Left: [_,_,_,Shield01,OHS03,_,_,_]. Bow (idx7) = skeletal mesh → needs separate SkeletalMeshComponent, deferred to bow combat pass.
 > Done: locomotion blendspace (A), AnimBP loco (B), jump state machine (C), directional dodge + standing backstep (D, **LeftControl**), weapon attach (E — `Sword`=`OHS03_Sword_SM` on **Mesh → Weapon_R**), **combat combo (F — hybrid: light Combo01–03 on UpperBody slot strafe-swing, heavy Combo04–05 full-body on DefaultSlot, ComboIndex on LMB/`IA_RPG_Attack`)**, **target-lock (G — `IA_RPG_TargetLock`/Tab; sphere-trace from `FollowCamera` fwd×3000 r125, CanDamage gate, FindLookAt-on-Tick; composes w/ strafe CMC)**. All saved to disk.
 > **Combat hit-detection (H) DONE 2026-06-14:** `Hit` Montage Notifies on combo sections → PlayMontage `OnNotifyBegin` → `MeleeHit` custom event (SphereOverlapActors in front, r150, [Pawn,PhysicsBody], IgnoreSelf → ForEach → ActorHasTag CanDamage → ApplyDamage 20). Unique-actor overlap = built-in dedupe. **PIE-confirmed: damage applies, Dummy reacts.** Enemy hit-react fixed (see below).
 > **NEXT — two tracks (pick with user):**
-> 1. **Replicate the stance pattern** to the other 7 stances, recommended order: NoWeapon → TwoHandsSword → SwordAndShield → DoubleSword → Spear → MagicWand → BowAndArrow (Bow last). Per stance = data, not new graph logic: build `BS_RPG_Loco_<Stance>`, add it to the Blend-Poses-by-Enum default/per-stance pin, per-stance jump/dodge/combo montages + weapon-mesh attach + stance-switch wiring. See arch §4b/§4h. **Also need: stance-switch system** (`IA_RPG_SwitchStance` + `DT_RPG_Stances` weapon-attach table, arch §4e).
+> 1. **Phase B — per-stance locomotion:** stance-switch + weapon swap is DONE. Next is making each stance *animate* differently. Build `BS_RPG_Loco_<Stance>` blendspaces (7 more) and feed them through a **`Blend Poses by Int`** node (selector = `CurrentStance` int) in the AnimGraph — replacing the old single `Blend Poses (E_RPG_Stance)` (already deleted). Recommended order: NoWeapon → TwoHandsSword → SwordAndShield → DoubleSword → Spear → MagicWand → BowAndArrow (Bow last). Then **Phase C** per-stance combat/dodge montages replicating SingleSword. Bow stance also still needs its skeletal-mesh visual.
 > 2. **RPG enemy — DONE (`/Game/RPG/Enemies/BP_RPG_Enemy`, duplicated from CC `Dummy`):** in-place hit-react + health bar + in-place death, tagged CanDamage. Remaining enemy work: sever CC deps if desired (AnimClass `ABP_NoWeapon`, `BPC_PlayerStats`, CC widgets), fix assassinate-overlap cast (CC→RPG char), add AI. Plus combat polish: tune combo window (~1.0s), damage values, JumpStart/JumpEnd, foot-slide calibration.
 > Editor must be running with the MCPUnreal plugin (port 8090) for live inspection. Full detail in the session entries at the bottom of this file.
 
@@ -156,3 +157,34 @@ ENEMY HIT-REACT — "Dummy flies into the distance" FIXED:
 - **Health-bar fix:** the shared CC `BPC_PlayerStats.Decrease Health` updates the bar via its `As Dummy` ref, which is **null** on BP_RPG_Enemy (its BeginPlay casts owner→`Dummy` class, which BP_RPG_Enemy isn't) → bar didn't move (CurrentHealth/death still worked). Fixed by **pushing the bar % from BP_RPG_Enemy's own AnyDamage**: after `Decrease Health`, `Set Percent` on `Get Health Bar UI → HealthBar` (= CurrentHealth/MaxHealth from its `BPC_PlayerStats`). Keeps the CC component untouched.
 - **Still CC-dependent (acceptable, future cleanup):** AnimClass `ABP_NoWeapon`, `BPC_PlayerStats` component, CC widgets (`WB_Dummy_Health`, `WB_Assassinate_Prompt`); assassinate-radius overlap still casts to `BP_CC_Character` (won't fire for the RPG player — cosmetic).
 - New RPG montages this round: `AM_RPG_GetHit01/02_SingleSword`, `AM_RPG_Die01Stay/Die01/Die02_SingleSword` (all in-place, DefaultSlot, in `/Game/RPG/Montages/SingleSword/`).
+
+---
+
+## Session 2026-06-14 (cont.) — Stance-switch system (Phase A) COMPLETE + PIE-confirmed
+
+Built the foundation that lets the player cycle all 8 weapon stances and swaps the held weapon mesh live. **All PIE-confirmed by user.** This is the spine the per-stance locomotion (Phase B) and combat (Phase C) will hang off.
+
+### The int-vs-enum decision (important)
+`CurrentStance` is an **`int`**, not the `E_RPG_Stance` enum, on both `BP_RPG_PlayerCharacter` and `ABP_RPG_Player`. Reason: UE has **no int→UserDefinedEnum conversion node** ("No entries" when trying to connect), which blocks both the `(x+1)%8` cycle write-back and any int-driven AnimGraph selector. So we standardized on int everywhere; the `E_RPG_Stance` asset is kept **only as the index legend** (0=NoWeapon, 1=SingleSword, 2=TwoHandsSword, 3=SwordAndShield, 4=DoubleSword, 5=Spear, 6=MagicWand, 7=BowAndArrow).
+- GOTCHA hit & fixed: MCP `add_variable` (and `blueprint_query inspect`) **lie about UserDefinedEnum types** — `add_variable("CurrentStance","E_RPG_Stance")` silently created an **int**, and `inspect` reported it as `E_RPG_Stance` (reads the stored descriptor sub-type) while the compiled property was `int`. Detect via `execute_script` get_editor_property pytype. This is why the char var ended up int (kept it, by the decision above).
+
+### A1–A4: switch logic
+- Input `IA_RPG_SwitchStance` (bool) bound to **`Q`** in `IMC_RPG_Default` (via `input_ops bind_action`).
+- `IA_RPG_SwitchStance (Started)` → `Set CurrentStance = (Get CurrentStance + 1) % 8` → `ApplyStance` → `Print String` (validation). True modulo, wraps 7→0. **PIE-confirmed cycling + wrap.**
+- `ABP_RPG_Player` Update Animation reads it: off the existing `Cast To BP_RPG_PlayerCharacter`, `Get CurrentStance (int)` → `Set CurrentStance (ABP int)`, spliced before Set OwnerChar. (Earlier the old `Blend Poses (E_RPG_Stance)` node + a stale enum getter caused int↔enum compile errors → resolved by going int and **deleting that Blend-by-Enum node**; Phase B will use `Blend Poses by Int`.)
+
+### A5: weapon-mesh swap (data = populated arrays, not a DataTable)
+Chose populated `StaticMesh` arrays over a `DT_RPG_Stances` struct/table — same data-driven result, fully fillable via Python (object refs can't be set on BP pins, but CAN be set on CDO array props). A real DataTable can come later if Phase B/C want per-stance montages/blendspaces in one home.
+- Vars on char: **`StanceRightMeshes`** and **`StanceLeftMeshes`** (Array of StaticMesh, created in-editor, populated via Python on the CDO + saved).
+  - Right: `[None, OHS03_Sword_SM, THS01_Sword_SM, OHS03_Sword_SM, OHS03_Sword_SM, Spear01_SM, Wand01_SM, None]`
+  - Left:  `[None, None, None, Shield01_SM, OHS03_Sword_SM, None, None, None]`
+- Components: existing **`Sword`** on socket **`Weapon_R`** (right hand) + new **`Weapon_L`** (cloned from Sword, socket **`Weapon_L`**, default mesh cleared) for shield/off-hand. Sockets `Weapon_R`/`Weapon_L` already exist on `OneMeshCharacter01_Skeleton`, so swapping = just `Set Static Mesh` on already-attached components (no re-attach, no socket data needed).
+- **`ApplyStance`** function (custom fn, called on **BeginPlay** + after each switch): `Sword.SetStaticMesh(StanceRightMeshes[CurrentStance])` then `Weapon_L.SetStaticMesh(StanceLeftMeshes[CurrentStance])`. Index 0/7 = None → component hides. **PIE-confirmed: sword/2H-sword/spear/wand swap on right; shield (idx3) + dual-sword (idx4) on left; NoWeapon empty.**
+  - GOTCHA: MCP `add_function` creates a function **without the BlueprintCallable flag** (graph compiles but the palette won't offer a call node — "not BP callable"). Fix = recreate the function in-editor (the **+ Add Function** button). MCP `connect_pins`/`add_node` are fine inside it afterward.
+
+### Deferred
+- **BowAndArrow visual (idx 7):** bows are **skeletal** meshes (`/Weapon/Bows/Bow0x_SK`), so a static `Weapon_L` can't show them. Needs a dedicated `SkeletalMeshComponent` (visibility-toggled by stance) — folded into the bow combat pass ("bow last").
+- Cosmetic: swapped meshes inherit the component transform tuned for OHS03; spear/2H may want per-stance offsets later.
+
+### Next
+**Phase B — per-stance locomotion:** build `BS_RPG_Loco_<Stance>` blendspaces (7 more) and route them through a **`Blend Poses by Int`** (selector = `CurrentStance`) in the AnimGraph. Then **Phase C** per-stance combat/dodge montages replicating SingleSword.

@@ -3,12 +3,14 @@
 Running log of build sessions for the new `/Game/RPG/` strafe-movement, 8-stance player character.
 Reference architecture: `docs/RPG_CharacterArchitecture.md` (approved).
 
-> ## ▶ RESUME HERE (next session) — last updated 2026-06-10
-> **SingleSword stance: A–E complete. Start with Sub-step F (Combat).**
-> Done so far: locomotion blendspace (A), AnimBP loco (B), jump state machine (C), directional dodge + standing backstep (D, on **LeftControl**, PIE-confirmed), weapon attach (E — `Sword` mesh `OHS03_Sword_SM` on **Mesh → Weapon_R** socket, in-hand confirmed). All saved to disk.
-> **NEXT: Sub-step F — Combat.** Attack/combo montages on a slot; plan UpperBody slot + Layered Blend per Bone (spine) for attack-while-strafing (arch §4b); `DefaultSlot` already exists from dodge. First action: scope SingleSword attack clips in `/Game/RPGTinyHeroWavePBR/Animation/SingleSword/` (~16 attacks) and inspect ABP_RPG_Player's current AnimGraph slot setup before changing anything.
-> After F: Sub-step G (target-lock port from BP_CC_Character). Then replicate pattern to the other 7 stances.
-> Editor must be running with the MCPUnreal plugin (port 8090) for live inspection. Full detail in the latest session entry at the bottom of this file.
+> ## ▶ RESUME HERE (next session) — last updated 2026-06-14
+> **SingleSword stance COMPLETE end-to-end (A–G), all PIE-confirmed. The validated pattern is ready to replicate to the other 7 stances.**
+> Done: locomotion blendspace (A), AnimBP loco (B), jump state machine (C), directional dodge + standing backstep (D, **LeftControl**), weapon attach (E — `Sword`=`OHS03_Sword_SM` on **Mesh → Weapon_R**), **combat combo (F — hybrid: light Combo01–03 on UpperBody slot strafe-swing, heavy Combo04–05 full-body on DefaultSlot, ComboIndex on LMB/`IA_RPG_Attack`)**, **target-lock (G — `IA_RPG_TargetLock`/Tab; sphere-trace from `FollowCamera` fwd×3000 r125, CanDamage gate, FindLookAt-on-Tick; composes w/ strafe CMC)**. All saved to disk.
+> **Combat hit-detection (H) DONE 2026-06-14:** `Hit` Montage Notifies on combo sections → PlayMontage `OnNotifyBegin` → `MeleeHit` custom event (SphereOverlapActors in front, r150, [Pawn,PhysicsBody], IgnoreSelf → ForEach → ActorHasTag CanDamage → ApplyDamage 20). Unique-actor overlap = built-in dedupe. **PIE-confirmed: damage applies, Dummy reacts.** Enemy hit-react fixed (see below).
+> **NEXT — two tracks (pick with user):**
+> 1. **Replicate the stance pattern** to the other 7 stances, recommended order: NoWeapon → TwoHandsSword → SwordAndShield → DoubleSword → Spear → MagicWand → BowAndArrow (Bow last). Per stance = data, not new graph logic: build `BS_RPG_Loco_<Stance>`, add it to the Blend-Poses-by-Enum default/per-stance pin, per-stance jump/dodge/combo montages + weapon-mesh attach + stance-switch wiring. See arch §4b/§4h. **Also need: stance-switch system** (`IA_RPG_SwitchStance` + `DT_RPG_Stances` weapon-attach table, arch §4e).
+> 2. **Proper RPG enemy** (currently testing on the CC archive `Dummy`): build `BP_RPG_Enemy` on OneMeshCharacter01 with in-place hit-react + health + death (reuse the new `AM_RPG_GetHit01/02_SingleSword` in-place montages). Plus combat polish: tune combo window (~1.0s), damage values, JumpStart/JumpEnd, foot-slide calibration.
+> Editor must be running with the MCPUnreal plugin (port 8090) for live inspection. Full detail in the session entries at the bottom of this file.
 
 ---
 
@@ -92,3 +94,57 @@ TOOLING NOTES (this session):
 - `blueprint_query get_graph` hides object-ref pin defaults (montage/mesh/asset refs read as empty) — never infer "unset" from it.
 - MCP `blueprint_modify` edits DO write to the `.uasset` on disk (not just editor memory) — treat as committed changes, not scratch.
 - `execute_script` stdout isn't returned by the tool — read prints via `get_output_log` (category LogPython). Skeleton `sockets` property is protected; enumerate bones/sockets via a transient `SkeletalMeshComponent` (`get_num_bones`/`get_bone_name`/`get_all_socket_names`).
+
+---
+
+## Session 2026-06-14 — Sub-step F (Combat / combo) COMPLETE + PIE-confirmed
+STATUS: SingleSword combat combo built end-to-end and **PIE-confirmed by user**. Hybrid layered design working. All assets saved.
+
+DESIGN (decided with user this session):
+- **Attack-while-strafing via upper-body layering** for light hits, **full-body for heavy finishers** (hybrid). Combo clips are the pack's `InPlace/Combo01–05_InPlace_SingleSword_Anim` (NOT the top-level `Attack01–04`, which are reserved/special; `Attack04_Start`+`Attack04_Spinning` are a future charged-attack candidate).
+
+ANIMGRAPH (`ABP_RPG_Player`):
+- Inserted **`Slot 'UpperBody'`** + **`Layered blend per bone`** (branch filter **`spine_01`**, blend depth 1). New topology: `Locomotion SM → Slot 'DefaultSlot' ─┬→ LayeredBlend.BasePose → Output` and `└→ Slot 'UpperBody'.Source → LayeredBlend.BlendPoses_0`. DefaultSlot = full-body (dodge + heavy combos); UpperBody = layered (light combos). **PIE-confirmed: light swing plays on upper body while legs keep strafing.**
+
+MONTAGES (`/Game/RPG/Montages/SingleSword/`):
+- **`AM_RPG_Combo_SingleSword`** (UpperBody slot) — sections `Combo01`–`Combo05` from the InPlace clips, **section links Cleared** (each section plays once & stops; BP drives advance). Used for light combos 1–3.
+- **`AM_RPG_ComboHeavy_SingleSword`** (DefaultSlot, full body) — sections `Combo04`,`Combo05`. Used for heavy finishers 4–5 (their footwork/spin needs the lower body, which the spine_01 filter discards → they were "limited" on UpperBody; full-body fixes them).
+
+INPUT: **`IA_RPG_Attack`** (bool) → **LeftMouseButton** in `IMC_RPG_Default` (saved). Wired on the event node's **Started** exec (fires once per click).
+
+BP LOGIC (`BP_RPG_PlayerCharacter`, restart-at-section combo):
+- Vars: `ComboIndex` (int). On `IA_RPG_Attack` Started → **Branch (`ComboIndex < 3`)**: true→light Play Montage (UpperBody), false→heavy Play Montage (DefaultSlot). Both share one **Select<Name>** (Index=ComboIndex; options Combo01–05) feeding `StartingSection`, and one `Get Mesh`. `bShouldStopAllMontages=true` (each press hard-cuts to the next swing). Both `Then` → **Set ComboIndex = `(ComboIndex+1) % 5`** → **Retriggerable Delay (~1.0s)** → **Set ComboIndex = 0** (combo window; tune 0.8–1.2). **PIE-confirmed: 1–3 strafe-swings, 4–5 full-body finishers, chains then resets.**
+
+GOTCHAS HIT THIS SESSION (for next time):
+- Montage `Default` section (factory artifact) + auto-section-loop caused single swing to loop → fix in montage Sections panel (**Clear** links + delete `Default`).
+- Combo capped at 3: combo window (RetriggerableDelay) too short for press cadence → lengthen; AND a `÷` node used where `%` (modulo) belongs → index never advanced past the divide-rounding.
+- Heavy combos (4/5) looked "limited" on UpperBody → they're full-body; route to DefaultSlot.
+
+TOOLING NOTES (capabilities CHANGED vs. prior sessions — verified live):
+- ✅ **MCP `blueprint_modify` CAN now add AnimGraph nodes** (`AnimGraphNode_Slot`, `AnimGraphNode_LayeredBoneBlend`) and **K2 nodes that are their own class** (`K2Node_PlayMontage`, `K2Node_IfThenElse`, `K2Node_Select`, VariableGet/Set, `K2Node_EnhancedInputAction`), plus `connect_pins`/`disconnect_pins`. The old "can't spawn nodes" limit is GONE.
+- ❌ STILL can't via MCP: set **object-ref pins** (`MontageToPlay` — `set_pin_value` stores an invalid string → compile fatal; clear to `None` and set via the node dropdown); set the **`InputAction`** on an EnhancedInputAction node (stays "None"); add **function-call nodes with a target** (`K2Node_CallFunction` adds an *unconfigured* node — can't pick the function, so math/`<`/`%`/array/montage-function/RetriggerableDelay nodes are user-built); set **AnimGraph node internal props** (slot name, branch-filter bone) — manual in Details.
+- Montage section next-links and slot name are NOT script-readable/writable (only `get_num_sections`/`get_section_name`/`get_montage_slot_names` exposed) — montage timeline/section/slot editing is manual.
+- `AnimMontageFactory` (Python) creates single-clip montages on **DefaultSlot** only.
+
+### Sub-step G — Target-lock port COMPLETE + PIE-confirmed (same day 2026-06-14)
+Ported the `BP_CC_Character` lock-on to `BP_RPG_PlayerCharacter` 1:1 (RPG char uses the **same** `FollowCamera` component name, so it dropped in cleanly). Guided manual build (entire graph is function/getter nodes MCP can't configure — see tooling notes above).
+- **Input:** `IA_RPG_TargetLock` (bool, `/Game/RPG/Input/`) → **Tab** (Pressed) in `IMC_RPG_Default` (saved).
+- **Var:** `ActorToTargetLock` (Actor object ref) — added in-editor (MCP add_variable mistypes object refs to int).
+- **Acquire (on Triggered):** `IsValid(ActorToTargetLock)` → Valid: SET empty (toggle off); NotValid: `SphereTraceForObjects` Start=`FollowCamera` GetWorldLocation, End=Start+(GetForwardVector×3000), Radius 125, ObjectTypes=[Pawn,PhysicsBody], **IgnoreSelf=true** → **Branch(ReturnValue) [mandatory hit-gate]** → Break Hit Result → Hit Actor → Branch(`ActorHasTag "CanDamage"`) → SET ActorToTargetLock=Hit Actor.
+- **Maintain (Event Tick, wired directly — RPG char had no prior Tick logic, no Sequence splice needed):** `IsValid(ActorToTargetLock)` → Valid → `Set Control Rotation`(target=Get Controller) = `FindLookAtRotation`(self GetActorLocation, target GetActorLocation − (0,0,100)).
+- **Tuning:** distance=fwd×3000; aim forgiveness=radius 125; camera-higher=−100 Z.
+- **GOTCHA fixed during build:** acquire-path `IsValid` had its `InputObject` pin unconnected (Tick-path one was fine) → toggle-OFF didn't work (always re-acquired); connected it to `Get ActorToTargetLock`. (Reminder: object-typed *links* DO show in `get_graph`; only object *default values* are hidden — so a missing object link there is real.)
+- Needs a `CanDamage`-tagged Pawn/PhysicsBody target in the level (reused/placed an enemy). **PIE-confirmed: Tab locks, character faces & strafe-orbits target, Tab again releases.**
+- **SingleSword stance is now feature-complete (A–G).** Validated pattern ready to replicate to the other 7 stances.
+
+### Sub-step H — Combat hit-detection + enemy hit-react COMPLETE + PIE-confirmed (same day 2026-06-14)
+Made the combo actually deal damage.
+- **Notifies:** a **Montage Notify** named `Hit` placed at the impact frame of each combo section — `Combo01–03` on `AM_RPG_Combo_SingleSword`, `Combo04–05` on `AM_RPG_ComboHeavy_SingleSword`. (Must be a **Montage Notify**, not a plain skeleton notify — only Montage Notifies route to the Play Montage node's `OnNotifyBegin`.)
+- **`MeleeHit` custom event** (`BP_RPG_PlayerCharacter`): `SphereOverlapActors`(pos = GetActorLocation + GetActorForwardVector×150, radius 150, ObjectTypes [Pawn,PhysicsBody], IgnoreSelf) → ForEach OutActor → Branch `ActorHasTag "CanDamage"` → `ApplyDamage` 20 (instigator = Get Controller, causer = self). `SphereOverlapActors` returns **unique** actors → built-in per-swing dedupe (no Hit-Actors array needed; avoids the CC `BPC_AttackSystem` double-hit weakness).
+- **Wiring:** both light & heavy Play Montage `OnNotifyBegin` → `MeleeHit`.
+- **PIE-confirmed: damage applies to the CanDamage target.**
+
+ENEMY HIT-REACT — "Dummy flies into the distance" FIXED:
+- Root cause: test target is the CC archive `Dummy` (`/Game/CharacterCreator/enemies/Dummy`, Character, mesh on `OneMeshCharacter01_SK`, AnimClass `ABP_NoWeapon`). Its `Event AnyDamage` plays a random `hitAnim` montage (`CC_GetHit01/02_SingleSword_Anim_Montage`) + decrements `BPC_PlayerStats` health + death/destroy. `ABP_NoWeapon` is **`Root Motion From Montages Only`** and those CC hit montages carry root motion → each hit slides the capsule; a 5-hit combo launches it.
+- Fix WITHOUT touching CC archive: created in-place hit-react montages **`AM_RPG_GetHit01/02_SingleSword`** (from the pack's top-level `GetHit0x_SingleSword_Anim`, `enable_root_motion=False`) and **overrode the Dummy *instance's* `hitAnim` array** in `Lvl_RPG_Test` to use them (instance-editable, so CC BP + shared `ABP_NoWeapon` stay untouched). **PIE-confirmed: flinches in place, no displacement.**
+- **TODO (proper):** replace the CC Dummy with a dedicated `BP_RPG_Enemy` (RPG-track, on OneMeshCharacter01, in-place hit-react + own health). The CC Dummy is a placeholder.

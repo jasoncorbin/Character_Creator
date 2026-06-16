@@ -3,7 +3,8 @@
 Running log of build sessions for the new `/Game/RPG/` strafe-movement, 8-stance player character.
 Reference architecture: `docs/RPG_CharacterArchitecture.md` (approved).
 
-> ## ▶ RESUME HERE (next session) — last updated 2026-06-14 (stance-switch system added)
+> ## ▶ RESUME HERE (next session) — last updated 2026-06-15 (Phase B per-stance locomotion in progress)
+> **PHASE B (per-stance locomotion) IN PROGRESS (2026-06-15):** All **8 locomotion blendspaces now exist** in `/Game/RPG/Anim/Blendspaces/` (`BS_RPG_Loco_<Stance>`, idx 0=NoWeapon…7=BowAndArrow). NoWeapon(0) is **wired into the AnimGraph + PIE-confirmed** (Q-cycle NoWeapon↔SingleSword swaps locomotion). The other 6 (THS,S&S,DoubleSword,Spear,MagicWand,Bow) are **built but NOT yet wired** — user is manually adding Blend Pose pins 2–7 to the `Blend Poses by Int` node in the **Grounded** state. **How blendspaces were built:** duplicate `BS_RPG_Loco_SingleSword` → remap the 7 samples (by position) to the stance's clips via Python — `sample_data`/`FBlendSample`/`blend_parameters` ARE settable in Python (axis = Direction −180..180 grid4 × Speed 0..600 grid2; samples idle@0,0 / MoveFWD@0,300 / MoveBWD@±180,300 / MoveRGT@90,300 / MoveLFT@−90,300 / SprintFWD@0,600). **Pack clip-naming quirks:** TwoHandsSword suffix=`THS` & its Move clips drop "Battle" (`MoveFWD_InPlace_THS`); Spear Move clips also drop "Battle"; SwordAndShield idle is a pack TYPO `Idle_Battle_SwordAndShiled_Anim`. **AnimGraph wiring is MANUAL** — the blendspace player nodes live inside the Grounded *state sub-graph* which MCP get_graph/add_node CANNOT reach (only top-level FunctionGraphs/UbergraphPages), and the BlendSpace asset ref + AnimGraph pins aren't Python-settable. Inspect inner state graph read-only via `BlueprintEditorLibrary.find_graph(bp,"Grounded").get_graph_nodes_of_class(unreal.AnimGraphNode_Base)`.
 > **SingleSword stance COMPLETE end-to-end (A–H) + STANCE-SWITCH FOUNDATION (Phase A) COMPLETE, all PIE-confirmed. Player can now cycle all 8 stances on `Q` and the weapon mesh swaps live (7/8 stances; bow deferred).**
 > **Stance-switch (Phase A, 2026-06-14):** `IA_RPG_SwitchStance`/**Q** → `(CurrentStance+1)%8` cycle. **`CurrentStance` is an `int`, NOT the `E_RPG_Stance` enum** — chosen deliberately because UE has no int→UserDefinedEnum conversion (blocks cycling/AnimGraph). The enum asset is kept only as the index legend (0=NoWeapon…7=BowAndArrow). ABP reads it as int (Update Animation) for a future **`Blend Poses by Int`** (NOT by Enum). Weapon swap = `ApplyStance` fn called on BeginPlay + after each switch: `Sword`(Weapon_R socket).SetStaticMesh(`StanceRightMeshes[idx]`) + `Weapon_L`(Weapon_L socket).SetStaticMesh(`StanceLeftMeshes[idx]`). Both arrays are `StaticMesh` arrays on the char, populated via Python. Right: [_,OHS03,THS01,OHS03,OHS03,Spear01,Wand01,_]; Left: [_,_,_,Shield01,OHS03,_,_,_]. Bow (idx7) = skeletal mesh → needs separate SkeletalMeshComponent, deferred to bow combat pass.
 > Done: locomotion blendspace (A), AnimBP loco (B), jump state machine (C), directional dodge + standing backstep (D, **LeftControl**), weapon attach (E — `Sword`=`OHS03_Sword_SM` on **Mesh → Weapon_R**), **combat combo (F — hybrid: light Combo01–03 on UpperBody slot strafe-swing, heavy Combo04–05 full-body on DefaultSlot, ComboIndex on LMB/`IA_RPG_Attack`)**, **target-lock (G — `IA_RPG_TargetLock`/Tab; sphere-trace from `FollowCamera` fwd×3000 r125, CanDamage gate, FindLookAt-on-Tick; composes w/ strafe CMC)**. All saved to disk.
@@ -188,3 +189,31 @@ Chose populated `StaticMesh` arrays over a `DT_RPG_Stances` struct/table — sam
 
 ### Next
 **Phase B — per-stance locomotion:** build `BS_RPG_Loco_<Stance>` blendspaces (7 more) and route them through a **`Blend Poses by Int`** (selector = `CurrentStance`) in the AnimGraph. Then **Phase C** per-stance combat/dodge montages replicating SingleSword.
+
+---
+
+## Session 2026-06-15 — Phase B per-stance locomotion (in progress)
+STATUS: All 8 locomotion blendspaces built. NoWeapon wired into AnimGraph + PIE-confirmed. Other 6 built, awaiting manual wiring into Blend Poses by Int.
+
+DONE:
+- **All 8 `BS_RPG_Loco_<Stance>` blendspaces exist** in `/Game/RPG/Anim/Blendspaces/`. Indices: 0 NoWeapon, 1 SingleSword (pre-existing), 2 TwoHandsSword, 3 SwordAndShield, 4 DoubleSword, 5 Spear, 6 MagicWand, 7 BowAndArrow.
+- **Build method (Python, repeatable):** duplicate `BS_RPG_Loco_SingleSword` → for each of the 7 samples, remap `animation` by sample POSITION to the stance's clip, then `save_asset`. Confirmed Python CAN read/write `sample_data` (array of `unreal.BlendSample`: `animation`, `sample_value` Vector, `rate_scale`) and `blend_parameters` (array of `BlendParameter`: `display_name`,`min`,`max`,`grid_num`). Axis config copied from SingleSword: Direction (−180..180, grid 4) × Speed (0..600, grid 2). Sample layout (7): Idle@(0,0), MoveFWD@(0,300), MoveBWD@(−180,300) AND @(+180,300) [wrap], MoveRGT@(90,300), MoveLFT@(−90,300), SprintFWD@(0,600). All clips are `_InPlace_` (CMC drives capsule).
+- **Pack clip-naming quirks discovered** (per stance, all suffix = folder name except THS):
+  - TwoHandsSword: suffix `THS`; Move clips are `MoveDIR_InPlace_THS_Anim` (NO "Battle"); Sprint keeps "Battle" (`SprintFWD_Battle_InPlace_THS_Anim`); idle `Idle_Battle_THS_Anim`.
+  - Spear: Move clips `MoveDIR_InPlace_Spear_Anim` (NO "Battle"); idle/sprint normal.
+  - SwordAndShield: idle is a PACK TYPO → `Idle_Battle_SwordAndShiled_Anim` (moves/sprint spell "SwordAndShield" correctly).
+  - DoubleSword / MagicWand / BowAndArrow: fully standard `..._Battle_InPlace_<Stance>_Anim`.
+- **NoWeapon (idx 0) wired + PIE-confirmed.** AnimGraph Grounded state now: BlendSpacePlayer(NoWeapon)→BlendPose0, BlendSpacePlayer(SingleSword)→BlendPose1 of a `Blend Poses by Int` (Active Child Index ← `CurrentStance`) → StateResult. User verified Q-cycle NoWeapon↔SingleSword changes locomotion.
+
+KEY TOOLING NOTES (important for replication):
+- AnimGraph blendspace-player nodes live inside the **Grounded state sub-graph** (`AnimationStateGraph`). MCP `blueprint_query get_graph` / `add_node` / `connect_pins` only search top-level `FunctionGraphs`+`UbergraphPages` → CANNOT reach state sub-graphs. `anim_blueprint_modify add_anim_node` is a STUB (no-op) in this plugin build.
+- A node's BlendSpace asset ref (FAnimNode_BlendSpacePlayer.BlendSpace) is NOT Python-exposed (only `blend_weight`/`internal_time_accumulator`); AnimGraph pin link APIs are NOT Python-exposed. → **AnimGraph wiring inside states is MANUAL in-editor.**
+- READ-ONLY inspection of a state's inner graph: `g = unreal.BlueprintEditorLibrary.find_graph(bp, "Grounded"); g.get_graph_nodes_of_class(unreal.AnimGraphNode_Base)` (the `Nodes` property is protected; `export_text` unavailable). Use this to verify node count/type after manual wiring.
+- `search_assets` with short `class_filter` ("AnimSequence") triggers a non-fatal editor ensure; use fully-qualified `/Script/Engine.AnimSequence`, or prefer Python `EditorAssetLibrary.list_assets` / `does_asset_exist`.
+
+PENDING (next):
+- User to add Blend Pose pins 2–7 to the `Blend Poses by Int` node and connect each `BS_RPG_Loco_<Stance>` (+ Direction/Speed Get nodes) per the index table; compile.
+- Verify Grounded graph = 8 BlendSpacePlayer + 1 BlendListByInt; PIE-test all 8 stances cycle correctly.
+- BowAndArrow (idx 7): body locomotion blendspace built, but the bow **skeletal-mesh visual** is still deferred to the bow combat pass.
+- Then Phase C — per-stance combat/dodge montages.
+- Phase B work saved to disk, still UNCOMMITTED on `main` (offer branch+commit once all stances PIE-confirmed).

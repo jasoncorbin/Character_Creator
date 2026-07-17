@@ -3,7 +3,12 @@
 Running log of build sessions for the new `/Game/RPG/` strafe-movement, 8-stance player character.
 Reference architecture: `docs/RPG_CharacterArchitecture.md` (approved).
 
-> ## ▶ RESUME HERE (next session) — last updated 2026-06-23 (Phase C core combat DATA-COMPLETE for all 8 stances; awaiting full PIE sweep)
+> ## ▶ RESUME HERE — last updated 2026-07-16 (session 2)
+> **RANGED CHARGE/RELEASE + OVER-THE-SHOULDER CAMERA COMPLETE, all PIE-confirmed** ("all items are working as intended"). Combos are removed from ranged stances (6 wand / 7 bow): LMB **hold = charge** (bow-mesh draw anim + `bIsCharging`), **release = one discrete shot** (shot montage plays, its `Hit` notify spawns the arrow). Melee stances 0-5 untouched. Camera is now permanently over-the-shoulder for ALL stances (`CameraBoom.socket_offset = 0,60,25`) — this **supersedes the old RMB `IA_Aim` plan**, no new Input Action needed.
+> **▶▶ NEXT: crosshair/reticle for ranged stances** — and fix **AIM PARALLAX** in the same pass (free-aim arrows travel camera-forward but the camera is 60u right, so a center crosshair isn't where they land close-up; fix = camera line-trace → `FindLookAtRotation(muzzle, hitPoint)` instead of the camera-forward End node `51961C77`). **Full detail, all node GUIDs, traps, and deferred v2 ideas: `.claude/handoff.md`** — read that first, it's the live doc.
+> Still deferred: true held-draw pose (needs user-authored Draw/Release montage sections — pack has no draw/hold clips); charge-dependent power; wand cast VFX (still fires `BP_Arrow` from the bow's NockArrow); per-stance get-hit/death montages; `BPC_PlayerStats.Decrease Health` "Accessed None … As Dummy" bug (user: **leave for now, fix later**). **Uncommitted on `main` — user commits manually.**
+>
+> ## (older) RESUME block — last updated 2026-06-23 (Phase C core combat DATA-COMPLETE for all 8 stances; awaiting full PIE sweep)
 > **PHASE C (per-stance combat) — CORE COMBAT DATA-COMPLETE FOR ALL 8 STANCES.** Stance-aware montage selection (BUILT + PIE-CONFIRMED mechanism) reads per-stance `AnimMontage` arrays by `CurrentStance` (`StanceComboLight`, `StanceComboHeavy`, `StanceDodgeFWD/BWD/LFT/RGT`, size 8). **ALL 8 indices (0-7) now filled** for both combo arrays AND all 4 dodge arrays — verified clips/sections, BP saved. PIE-confirmed so far: NoWeapon(0), SingleSword(1), TwoHandsSword(2). **(3)-(7) populated but NOT yet PIE-swept.**
 > **▶▶ DO FIRST NEXT SESSION — full PIE sweep of stances 3-7:** Q-cycle to each of SwordAndShield(3), DoubleSword(4), Spear(5), MagicWand(6), BowAndArrow(7) and verify: correct weapon mesh + 4-dir dodge + standing backstep + LMB light/heavy combo, no displacement/seep. Watch for: (a) any stance whose light combo looks stiff on UpperBody (spine_01 filter clips wide swings) → move that stance's light combo to DefaultSlot like the heavy; (b) weapon drift → tune `StanceRightRotations[N]`/`StanceLeftRotations[N]`. MagicWand(6)+Bow(7) combos currently play as melee swings (cast/projectile + bow skeletal visual are SEPARATE deferred passes — montages exist so the slots aren't empty).
 > Still open: per-stance get-hit/death montages (deferred, batchable via Python — currently all stances share the SingleSword get-hit/death on the enemy); Bow(7) skeletal-mesh visual; MagicWand(6) cast/projectile design; commit Phase B+C work (UNCOMMITTED on `main` — offer branch+commit after the PIE sweep passes). Full detail in the 2026-06-23 session entry at bottom.
@@ -284,3 +289,36 @@ DONE — SwordAndShield(3) combos: USER authored `AM_RPG_Combo_SwordAndShield` (
 - **RESULT: all 8 stances have complete combo + dodge data.** PIE-confirmed: 0,1,2. PENDING: full PIE sweep of 3-7.
 
 REMAINING: PIE-sweep stances 3-7; per-stance get-hit/death montages (deferred); Bow(7) skeletal visual; MagicWand(6) cast/projectile design. Phase B+C work UNCOMMITTED on `main` — offer branch+commit after sweep passes.
+
+---
+
+## Session 2026-07-16 (session 2) — Ranged charge/release + over-the-shoulder camera
+STATUS: **COMPLETE + PIE-CONFIRMED** by user ("all items are working as intended", camera "feels right"). Uncommitted on `main`.
+
+GOAL: remove the melee combo chain from ranged stances (6 MagicWand, 7 BowAndArrow) so they fire single discrete hold-to-charge / release-to-fire shots.
+
+DONE:
+- **New vars** on `BP_RPG_PlayerCharacter`: `StanceIsRanged` bool[8] ([6],[7]=true) + `bIsCharging` bool. Built via Python `BlueprintEditorLibrary.add_member_variable` + `get_array_type(get_basic_type_by_name("bool"))`, values set on the CDO, instance-editable. Verified as REAL types via CDO readback (pytype=Array len=8 / pytype=bool) — not the faked-int trap.
+- **Started path:** `IA_RPG_Attack`.Started → Branch `74CBC81F` (cond = `StanceIsRanged[CurrentStance]`). then → bow-draw PlayAnimation `2CBA2077` → `Set bIsCharging=true`. else → existing combo Branch `0C4E4079` (melee UNCHANGED). Side benefit: the bow-draw anim used to fire in EVERY stance (no gate existed); it's now correctly ranged-only.
+- **Release path:** `.Completed` → Branch `C01342A0` (cond = `bIsCharging`) → **pasted Play Montage** (copy of light `FC66BA61` + its `StanceComboLight[CurrentStance]` GET chain + Get Mesh + MeleeHit call) → `Set bIsCharging=false`. StartingSection left UNCONNECTED = starts at Combo01; the copy deliberately omits the ComboIndex-driven Select `89BB3C17` (SHARED by light+heavy). No section auto-chaining in PIE — one release = one shot.
+- **Fire trigger = the montage's `Hit` notify** (pasted PlayMontage.OnNotifyBegin → MeleeHit → gate → IsValid → SpawnActor), NOT `BowFire` on release. Chosen for frame-accurate release timing (arrow leaves on the animation's release frame, not instantly on button-up). **`BowFire` `AF52F272` / call `16CD1799` is now orphaned dead code — kept on purpose.**
+- **MeleeHit gate generalized:** deleted Equal(==7) `711C1B9F`; Branch `767BFFD5`.Condition ← `StanceIsRanged[CurrentStance]`; True→IsValid `5F083F66` KEPT (the spawn). This is what makes the WAND fire too.
+- **Over-the-shoulder camera:** user chose **permanent for all stances** ("true RPG fashion") over RMB-toggle / charge-only → pure component default, zero graph work. `CameraBoom.socket_offset = (0,60,25)` via Python SubobjectDataSubsystem template + compile + save. Arm 350 / FOV 90 / lag 15 unchanged.
+
+DESIGN CALLS:
+- **Dropped the `AND` node** from the approved plan's release gate: `bIsCharging` is only ever set true on the ranged path, so it already implies ranged. Removes the single most failure-prone node (boolean AND is a promotable operator = the wildcard-wiring trap).
+- Confirmed `StanceComboLight[6]`=`AM_RPG_Combo_MagicWand` and `[7]`=`AM_RPG_Combo_BowAndArrow` are stance-correct montages (3 sections Combo01-03) — the old 2026-06-23 note calling them "melee swings" is STALE.
+
+BUGS FOUND/FIXED:
+- **`Set bIsCharging` `4AA26FF6` literal was `true` instead of `false`** → charge flag latched permanently after the first shot, so every subsequent LMB release fired an arrow in ANY stance. Fixed via MCP `set_pin_value`. (Both Set-bool checkboxes are user slips — check these first if charge/release misbehaves.)
+
+TOOLING NOTES:
+- **STALE-EDITOR TRAP (cost a debugging detour):** a Blueprint editor open during a Python var-add shows the new var with the WRONG type in My Blueprint (bool array reads as a plain bool, no "Get (a copy)" offered, nothing connects). Close + reopen the BP tab. Check this FIRST when a Python-made variable "won't connect".
+- **IMC reads:** Python reports `IMC_RPG_Default` as **0 mappings** (API doesn't round-trip — same limitation as the WASD modifier bug). **MCP `input_ops get_bindings` reads all 10 correctly** — use that. Neither path exposes per-mapping triggers.
+- `IA_RPG_Attack`: 0 triggers, 0 modifiers, value_type Boolean → default no-trigger behavior fires `Completed` on release. Confirmed in PIE; no trigger config needed.
+- `execute_script` returns no stdout — used the write-a-file-then-Read pattern throughout (per [[mcp-blueprint-editing]]).
+
+OPEN / NEXT:
+- **Crosshair/reticle for ranged stances** (user-requested). Sketch: `WBP_RangedReticle` added/removed in `ApplyStance` gated on `StanceIsRanged[CurrentStance]`.
+- **AIM PARALLAX — must fix with the reticle:** free-aim arrows spawn at the bow muzzle but travel along camera-forward, and the camera now sits 60u right → a center crosshair is NOT where arrows land at close range. Fix = camera line-trace → `FindLookAtRotation(muzzle, hitPoint)` for SpawnActor `FD0B40CD`, replacing camera-forward End node `51961C77`. Lock-on path is unaffected.
+- Deferred v2: true held-draw pose (needs user-authored Draw/Release montage sections); charge-dependent power; `Set bIsCharging=false` in ApplyStance to tidy stance-switch-mid-charge; wand cast VFX/projectile.

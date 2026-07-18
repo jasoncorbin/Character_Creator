@@ -16,6 +16,20 @@ When the user says **"let's go" / "time to get started" / "continue"** (or anyth
 - **UE editor must be running with the MCPUnreal plugin (port 8090).** Call `mcp__mcp-unreal__status` first to confirm `editor_online` + `plugin_online`. If offline, ask the user to open the editor.
 - Project: `BP_RPG_PlayerCharacter`, `ABP_RPG_Player`, assets under `/Game/RPG/`. CC assets (`BP_CC_Character`, etc.) are an untouched archive — don't edit unless explicitly asked.
 
+## Where we are (2026-07-18, session 3 — RANGED CROSSHAIR + AIM-PARALLAX FIX COMPLETE)
+**PIE-confirmed by user:** crosshair shows/hides correctly across all stances, free-aim arrows land where the crosshair points at close range, lock-on unaffected. One cosmetic deferred (below).
+
+**Reticle — DONE:**
+- **`WBP_RangedReticle`** (`/Game/RPG/UI/`): simple UMG crosshair (CanvasPanel + 5 Images = 4 bars + center dot, anchored center). **Built by USER in the UMG designer** — `unreal.WidgetTree` is NOT Python-exposed in 5.7 (can create the empty shell via `WidgetBlueprintFactory`, but can't author the tree from script). I created the empty asset + the `ReticleWidget` (UserWidget-ref) member var via Python.
+- **Show/hide wired in `ApplyStance`** (appended after the Bow `Set Visibility` tail `7CC6F08D`): `IsValid(ReticleWidget)` → not-valid: `CreateWidget(WBP_RangedReticle, GetPlayerController 0)` → `Set ReticleWidget` → `AddToViewport` → Branch; valid → Branch directly (exec merge). `Branch(StanceIsRanged[CurrentStance])` → then `SetVisibility(Visible)` / else `SetVisibility(Collapsed)`. **Visibility-toggle (not add/remove)** so cycling 6↔7 doesn't double-add. User placed the 12 nodes; I wired 8 exec + 8 data pins via MCP.
+- **TRAP:** `GetArrayItem` fed by `connect_pins` stays **Wildcard** (same as promotable operators) → "type undetermined" compile error; user resolved by Refresh Nodes / re-drag from the typed pin. And `blueprint_query inspect` reports arrays by inner type (StanceIsRanged shows "bool" but is bool[8] — verify via CDO).
+
+**Aim parallax — FIXED (was the must-fix):** free-aim SpawnActor `FD0B40CD` now aims muzzle→camera-ray hit. Spliced `LineTraceByChannel`(Visibility, bIgnoreSelf) into the exec before the free-aim spawn: Start = camera `GetWorldLocation 12950C33`, End = existing camera-forward `51961C77` (CamLoc+Fwd*5000); `OutHit → BreakHitResult CABF2223 → Select CF3F8A15 (bBlockingHit ? ImpactPoint : TraceEnd) → FindLookAt E12AA98A.Target` (replaced the old direct `51961C77→Target`). New node GUIDs: LineTrace `0BF25653`, Break `CABF2223`, Select `CF3F8A15`. User placed the 3 nodes + internal drags; I wired the interface. Lock-on path (`ActorToTargetLock`) untouched.
+
+**DEFERRED — USER DECISION 2026-07-18 "leave as-is for now":** while LOCKED-ON in a ranged stance, the center crosshair sits at the enemy's **feet** (lock cam aims `enemy−100Z` `AC98CB28`, by design) while the arrow homes to the body — cosmetic mismatch, everything else fine. Later fix = hide the reticle while locked (gate on `ranged AND !IsValid(ActorToTargetLock)`, re-evaluated in the lock/unlock handlers since `ApplyStance` only runs on BeginPlay+Q) OR a dedicated on-target lock bracket. **Do NOT touch the −100Z lock framing.**
+
+**Both assets saved to disk, uncommitted on `main`** (user commits manually).
+
 ## Where we are (2026-07-16, session 2 — RANGED CHARGE/RELEASE + SHOULDER CAM COMPLETE)
 **All PIE-confirmed by user: "all items are working as intended"** — bow + wand charge/release, single discrete shots, shot animation plays, melee stances 1-5 unaffected, no cross-stance misfire.
 
@@ -41,7 +55,8 @@ When the user says **"let's go" / "time to get started" / "continue"** (or anyth
 - **Target-lock was accidentally broken and re-fixed this session:** `AC98CB28` (Tick FindLookAt → SetControlRotation) is the LOCK-ON look-at, NOT a bow node. Its `Start` must be the **camera** world location (`8119523F`), `Target` = enemy(−100Z). Do not wire bow muzzle/end into it.
 - **Pre-existing bug — USER DECISION 2026-07-16: "leave for now, will fix later." Do NOT touch it unprompted.** `BPC_PlayerStats.Decrease Health` throws `Accessed None … As Dummy` whenever the player takes damage from a non-"Dummy" causer (was spamming because of the old self-hit).
 
-## Next up — CROSSHAIR / RETICLE for ranged stances (user-requested 2026-07-16, NOT started)
+## ~~Next up — CROSSHAIR / RETICLE for ranged stances~~ ✅ DONE 2026-07-18 (see session-3 block at top)
+_(kept for reference — the reticle + aim-parallax fix described below were completed in session 3; only the lock-on-crosshair cosmetic is deferred.)_
 **Goal:** show a crosshair while in a ranged stance (6 wand / 7 bow) now that the shoulder cam makes one readable.
 
 **Must-fix as part of this pass — AIM PARALLAX (flagged, unfixed):** free-aim arrows spawn at the bow muzzle (`NockArrow`) but travel along **camera-forward**, and `CameraBoom.socket_offset` now sits **60u right**. So a center-screen crosshair is **NOT** where arrows land at close range — they converge toward it with distance. Proper fix: **line-trace from the camera** to find the real aim point, then `FindLookAtRotation(muzzle, hitPoint)` for the free-aim SpawnActor (`FD0B40CD`) instead of the camera-forward End node `51961C77` (= CamLoc + Fwd*5000). Do this WITH the reticle, not after — it's what makes the crosshair honest.

@@ -93,14 +93,33 @@ public:
 	// --- equipment -----------------------------------------------------------
 
 	/**
-	 * Equips an instance into its item's slot. The instance leaves the bag; anything
-	 * previously in that slot is returned to the bag (Unity dropped it on the floor).
-	 * Fires OnEquipChanged.
+	 * Equips an instance into its item's DEFAULT slot (Template->Slot).
+	 * Convenience wrapper over EquipToSlot.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Inventory|Equipment")
 	bool Equip(UItemInstance* Instance);
 
-	/** Clears a slot and returns its occupant to the bag. Fires OnEquipChanged. */
+	/**
+	 * Equips an instance into an EXPLICIT slot. The instance leaves the bag (and any other
+	 * slot it occupied); anything previously in the target slot is returned to the bag
+	 * (Unity dropped it on the floor). Fires OnEquipChanged.
+	 *
+	 * The explicit-slot form exists because a one-hand sword is valid in EITHER hand -
+	 * Melee, or OffHand for the DoubleSword stance (plan step 4, stance 4). Template->Slot
+	 * is a single value, so Equip() alone can never reach the off-hand path, which is also
+	 * the whole reason UItemData carries AttachRotationOffHand.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Equipment")
+	bool EquipToSlot(UItemInstance* Instance, EEquipSlot Slot);
+
+	/** Gear-only, plus the off-hand exception for shields and one-hand swords. */
+	UFUNCTION(BlueprintPure, Category = "Inventory|Equipment")
+	bool CanEquipToSlot(UItemInstance* Instance, EEquipSlot Slot) const;
+
+	/**
+	 * Clears a slot and returns its occupant to the bag. Fires OnEquipChanged.
+	 * @return false (and the item stays equipped) if the bag is full - never destroys gear.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Inventory|Equipment")
 	bool Unequip(EEquipSlot Slot);
 

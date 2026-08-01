@@ -8,6 +8,13 @@ public class Character_Creator : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
+		// This module has no Public/Private split - sources sit in Items/ and Inventory/
+		// directly under the module root. UBT does NOT put the module root on the include
+		// path by itself under BuildSettingsVersion.V6 (which turns off the legacy
+		// public/parent include-path behaviour), so "Items/ItemData.h" only resolves
+		// because of this line. Removing it breaks every cross-folder include.
+		PublicIncludePaths.Add(ModuleDirectory);
+
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core",
@@ -23,8 +30,5 @@ public class Character_Creator : ModuleRules
 			"Slate",
 			"SlateCore",
 		});
-
-		// No Public/Private split in this module, so UBT already treats the module
-		// directory as an include root - "Items/ItemData.h" resolves without extra paths.
 	}
 }

@@ -1,0 +1,434 @@
+[
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnrealTests\\MCPUnrealTests.Build.cs",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnrealTests.84.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnrealTests\\Private\\MCPUnrealTestsModule.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnrealTests.84.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnrealTests\\Private\\TestInputValidation.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnrealTests.84.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnrealTests\\Private\\TestJsonParsing.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnrealTests.84.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnrealTests\\Private\\TestNullTermination.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnrealTests.84.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnrealTests\\Private\\TestOperationDispatch.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnrealTests.84.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnrealTests\\Private\\TestParseJsonBody.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnrealTests.84.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnrealTests\\Private\\TestResponseFormatting.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnrealTests.84.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnrealTests\\Private\\TestUtilityFunctions.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnrealTests.84.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\MCPUnreal.Build.cs",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\ActorRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\AnimBlueprintRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\AssetRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\BlueprintRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\CharacterRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\ComponentRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\DataAssetRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\EditorRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\FabRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\GASRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\ISMRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\InputRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\LevelRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\MCPUnrealModule.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\MaterialRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\MeshRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\NetworkDebugRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\NiagaraRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\PCGRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\SubsystemRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\TextureRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Private\\UIQueryRoutes.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Public\\MCPUnrealModule.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Plugins\\MCPUnreal\\Source\\MCPUnreal\\Public\\MCPUnrealUtils.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\MCPUnreal.83.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Character_Creator.Build.cs",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Character_Creator.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Character_Creator.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Interaction\\InteractableComponent.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Interaction\\InteractableComponent.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Interaction\\InteractorComponent.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Interaction\\InteractorComponent.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Interaction\\RPGInteractable.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Interaction\\RPGInteractable.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Interaction\\WorldItem.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Interaction\\WorldItem.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Inventory\\InventoryComponent.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Inventory\\InventoryComponent.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Items\\ItemData.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Items\\ItemData.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Items\\ItemInstance.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Items\\ItemInstance.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Items\\RPGItemTypes.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Items\\RarityPalette.cpp",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	},
+	{
+		"file": "E:\\UE5 Projects\\Character_Creator\\Source\\Character_Creator\\Items\\RarityPalette.h",
+		"arguments": [
+			"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+			"@E:\\UE5 Projects\\Character_Creator\\.vscode\\compileCommands_Default\\Character_Creator.1.rsp"
+		],
+		"directory": "E:\\UE4 Projects\\_UE4\\UE_5.7\\Engine\\Source"
+	}
+]

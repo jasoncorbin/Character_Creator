@@ -8,7 +8,7 @@ namespace
 		return FLinearColor::FromSRGBColor(FColor::FromHex(InHex));
 	}
 
-	FRarityColors Set(const TCHAR* Main, const TCHAR* Soft, const TCHAR* Text)
+	FRarityColors MakeColors(const TCHAR* Main, const TCHAR* Soft, const TCHAR* Text)
 	{
 		return FRarityColors(Hex(Main), Hex(Soft), Hex(Text));
 	}
@@ -23,17 +23,17 @@ void URarityPalette::ResetToDesignDefaults()
 {
 	// --- Candy Warm (chosen) ---
 	CandyWarm.Empty();
-	CandyWarm.Add(EItemRarity::Common,    Set(TEXT("A99B86"), TEXT("F3EFE8"), TEXT("7C7060")));
-	CandyWarm.Add(EItemRarity::Uncommon,  Set(TEXT("54C97E"), TEXT("E6F8ED"), TEXT("2F9455")));
-	CandyWarm.Add(EItemRarity::Rare,      Set(TEXT("9B6BE6"), TEXT("F0E9FB"), TEXT("6E42C0")));
-	CandyWarm.Add(EItemRarity::Legendary, Set(TEXT("FF9A3D"), TEXT("FFEEDC"), TEXT("D26A0E")));
+	CandyWarm.Add(EItemRarity::Common,    MakeColors(TEXT("A99B86"), TEXT("F3EFE8"), TEXT("7C7060")));
+	CandyWarm.Add(EItemRarity::Uncommon,  MakeColors(TEXT("54C97E"), TEXT("E6F8ED"), TEXT("2F9455")));
+	CandyWarm.Add(EItemRarity::Rare,      MakeColors(TEXT("9B6BE6"), TEXT("F0E9FB"), TEXT("6E42C0")));
+	CandyWarm.Add(EItemRarity::Legendary, MakeColors(TEXT("FF9A3D"), TEXT("FFEEDC"), TEXT("D26A0E")));
 
 	// --- Classic Bright (fallback; matches the exported reference PNGs) ---
 	ClassicBright.Empty();
-	ClassicBright.Add(EItemRarity::Common,    Set(TEXT("7C8698"), TEXT("EEF1F5"), TEXT("5A6474")));
-	ClassicBright.Add(EItemRarity::Uncommon,  Set(TEXT("43B55F"), TEXT("E7F6EC"), TEXT("2E7D46")));
-	ClassicBright.Add(EItemRarity::Rare,      Set(TEXT("2E90E0"), TEXT("E4F1FC"), TEXT("1E6FB8")));
-	ClassicBright.Add(EItemRarity::Legendary, Set(TEXT("F0A32E"), TEXT("FDF1DC"), TEXT("B9740A")));
+	ClassicBright.Add(EItemRarity::Common,    MakeColors(TEXT("7C8698"), TEXT("EEF1F5"), TEXT("5A6474")));
+	ClassicBright.Add(EItemRarity::Uncommon,  MakeColors(TEXT("43B55F"), TEXT("E7F6EC"), TEXT("2E7D46")));
+	ClassicBright.Add(EItemRarity::Rare,      MakeColors(TEXT("2E90E0"), TEXT("E4F1FC"), TEXT("1E6FB8")));
+	ClassicBright.Add(EItemRarity::Legendary, MakeColors(TEXT("F0A32E"), TEXT("FDF1DC"), TEXT("B9740A")));
 
 	EmptyMain  = Hex(TEXT("DBD5C9"));
 	EmptySoft  = Hex(TEXT("F1EDE4"));

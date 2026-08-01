@@ -135,22 +135,70 @@ bool UInventoryComponent::SpendMaterial(UItemData* Item, int32 Amount)
 	return true;
 }
 
-bool UInventoryComponent::Equip(UItemInstance* Instance)
+bool UInventoryComponent::CanEquipToSlot(UItemInstance* Instance, EEquipSlot Slot) const
 {
-	if (!Instance || !Instance->Template)
-	{
-		return false;
-	}
-
-	const EEquipSlot Slot = Instance->GetSlot();
-
-	if (Instance->Template->IsMaterial())
+	if (!Instance || !Instance->Template || Instance->Template->IsMaterial())
 	{
 		return false; // materials are never equipped
 	}
 
+	if (Slot == EEquipSlot::Count)
+	{
+		return false;
+	}
+
+	// The natural case: the item goes where its template says.
+	if (Instance->GetSlot() == Slot)
+	{
+		return true;
+	}
+
+	// The one authored exception - the off-hand accepts a shield or a one-hand sword,
+	// which is what makes stances 3 (sword+shield) and 4 (double sword) reachable.
+	if (Slot == EEquipSlot::OffHand)
+	{
+		const EWeaponCategory Category = Instance->GetCategory();
+		return Category == EWeaponCategory::Shield || Category == EWeaponCategory::OHS;
+	}
+
+	return false;
+}
+
+bool UInventoryComponent::Equip(UItemInstance* Instance)
+{
+	if (!Instance)
+	{
+		return false;
+	}
+	return EquipToSlot(Instance, Instance->GetSlot());
+}
+
+bool UInventoryComponent::EquipToSlot(UItemInstance* Instance, EEquipSlot Slot)
+{
+	if (!CanEquipToSlot(Instance, Slot))
+	{
+		return false;
+	}
+
 	// Take it out of the bag if it is there (equipping moves, it does not duplicate).
 	GearBag.Remove(Instance);
+
+	// ...and out of any OTHER slot it already occupies, so moving a one-hand sword from
+	// Melee to OffHand cannot leave the same instance mounted in both hands.
+	EEquipSlot VacatedSlot = EEquipSlot::Count;
+	for (const TPair<EEquipSlot, TObjectPtr<UItemInstance>>& Pair : Equipped)
+	{
+		if (Pair.Key != Slot && Pair.Value == Instance)
+		{
+			VacatedSlot = Pair.Key;
+			break;
+		}
+	}
+	if (VacatedSlot != EEquipSlot::Count)
+	{
+		Equipped.Remove(VacatedSlot);
+		OnEquipChanged.Broadcast(VacatedSlot, nullptr, Instance);
+	}
 
 	UItemInstance* Previous = nullptr;
 	if (TObjectPtr<UItemInstance>* Existing = Equipped.Find(Slot))
@@ -161,18 +209,10 @@ bool UInventoryComponent::Equip(UItemInstance* Instance)
 	Equipped.Add(Slot, Instance);
 
 	// The fix for Unity's silent drop: the displaced item goes back to the bag.
+	// It always fits - Instance just vacated a bag slot, so the net change is zero.
 	if (Previous && Previous != Instance)
 	{
-		if (GearBag.Num() < Capacity)
-		{
-			GearBag.Add(Previous);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning,
-				TEXT("[Inventory] Bag full - displaced item '%s' was discarded on equip."),
-				*Previous->GetDisplayName().ToString());
-		}
+		GearBag.Add(Previous);
 	}
 
 	OnEquipChanged.Broadcast(Slot, Instance, Previous);
@@ -188,18 +228,18 @@ bool UInventoryComponent::Unequip(EEquipSlot Slot)
 	}
 
 	UItemInstance* Previous = *Existing;
-	Equipped.Remove(Slot);
 
-	if (GearBag.Num() < Capacity)
-	{
-		GearBag.Add(Previous);
-	}
-	else
+	// Refuse rather than destroy the player's gear. The caller can make room and retry.
+	if (GearBag.Num() >= Capacity)
 	{
 		UE_LOG(LogTemp, Warning,
-			TEXT("[Inventory] Bag full - unequipped item '%s' was discarded."),
+			TEXT("[Inventory] Bag full - '%s' stays equipped. Free a slot and retry."),
 			*Previous->GetDisplayName().ToString());
+		return false;
 	}
+
+	Equipped.Remove(Slot);
+	GearBag.Add(Previous);
 
 	OnEquipChanged.Broadcast(Slot, nullptr, Previous);
 	return true;

@@ -58,7 +58,7 @@ public:
 	FLinearColor GetBlockColor(EItemRarity Rarity) const;
 
 	/** Restores both palettes to the approved design hexes. */
-	UFUNCTION(CallInEditor, Category = "Palette")
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Palette")
 	void ResetToDesignDefaults();
 
 	URarityPalette();

@@ -1,6 +1,9 @@
 # Items / Loot / Inventory UI — UE5 Port Plan
 
-**Status:** approved 2026-08-01 — all recommendations taken, to be revisited during testing. Step 1 in progress.
+**Status:** approved 2026-08-01 — all recommendations taken, to be revisited during testing.
+**Steps 1, 2 and 3 are DONE, in C++, and step 3 is PIE-confirmed.** Next up is **step 4**
+(equip consumers) — the step this plan calls the fiddliest, because it is where the new system
+meets the already-working player.
 
 **Decisions locked:** instance model front-loaded to step 2 · hero preview = separate always-idle instance · palette = **Candy Warm** · author ~8 items by hand now · take the arrow-damage-from-item win in step 4 · modular-character direction stays out of scope.
 **Source spec:** `docs/ItemsLootUI_MechanicsSpec_ForUE5.md` (behaviour + values — the *what*).
@@ -116,9 +119,18 @@ $P  = "E:\UE5 Projects\Character_Creator\Character_Creator.uproject"
 & "$UE\Engine\Build\BatchFiles\Build.bat" Character_CreatorEditor Win64 Development -project="$P" -waitmutex
 ```
 
-**Expect first-compile errors** — none of this has been through UHT yet. Two classes of mistake were already pre-empted (Blueprint-exposed functions can't return const references, and const object pointers are poor BP params), but assume more.
+**BUILD IS GREEN as of 2026-08-01.** `UnrealEditor-Character_Creator.dll` links, all 14 files compile, UHT clean. Step 1 of the block above (project-file regeneration) is only needed when files are **added or removed** — a pure edit just needs step 2.
 
-**After a green build:** reopen the editor, regenerate the 9 items + palette against the C++ classes, and delete the superseded Blueprint assets — `PDA_RPG_Item`, `PDA_RPG_RarityPalette`, `DA_RarityPalette`, the 9 `DA_Item_*`, `BP_RPG_ItemInstance`, `BPC_RPG_Inventory` (which takes the stray `ProbeFunc` with it), and the 5 `E_RPG_*` enums.
+Four things had to be fixed to get there, all recorded with full reasoning in `.claude/handoff.md` § "First-build traps". The two that will bite again if anyone edits the build files:
+
+- ☠ **`PublicIncludePaths.Add(ModuleDirectory)` in `Character_Creator.Build.cs` is load-bearing.** No Public/Private split + sources in `Items/` and `Inventory/` + `BuildSettingsVersion.V6` (which disables legacy include-path behaviour) means UBT will **not** put the module root on the include path by itself. Delete that line and every cross-folder `#include` dies with C1083.
+- **Both target files must stay at `BuildSettingsVersion.V6`.** Lower versions change global compile settings the installed engine was not built with, and UBT rejects that outright for any target sharing build products with `UnrealEditor`.
+
+Also: **UHT runs `-WarningsAsErrors`** here, so every `UENUM` in this module needs an entry at **0**.
+
+**Next:** reopen the editor, regenerate the 9 items + palette against the C++ classes, and delete the superseded Blueprint assets — `PDA_RPG_Item`, `PDA_RPG_RarityPalette`, `DA_RarityPalette`, the 9 `DA_Item_*`, `BP_RPG_ItemInstance`, `BPC_RPG_Inventory` (which takes the stray `ProbeFunc` with it), and the 5 `E_RPG_*` enums.
+
+**One design gap closed during the build pass:** `Equip()` derived its slot from `Template->Slot`, a single value, so a one-hand sword could never be equipped into `OffHand` — making step 4's stance rows 3 and 4 unreachable and `AttachRotationOffHand` dead weight. `EquipToSlot(Instance, Slot)` + `CanEquipToSlot()` added; the off-hand accepts `Shield` or `OHS`. `Unequip()` now refuses when the bag is full rather than destroying the item.
 
 **What C++ buys beyond unblocking logic:** soft object refs as the spec originally wanted, a genuine `TMap<EEquipSlot, UItemInstance*>` instead of the index-array workaround, `OnEquipChanged(Slot, New, Old)`, and the permanent end of the enum/struct hand-off.
 
@@ -205,17 +217,74 @@ Two consequences baked into the design above:
 
 `E_RPG_InteractPriority` was **dropped** — priorities are compared numerically (10/50/100), so an int constant does the job and saves an enum.
 
-**Status: STEP 1 COMPLETE (2026-08-01).**
-- `PDA_RPG_Item` — 10 fields scripted (`Id`, `DisplayName`, `Description`, `Damage`, `RequiredLevel`, `Icon`, `StaticMeshAsset`, `SkeletalMeshAsset`, `AttachRotation`, `AttachRotationOffHand`) + 5 enum fields authored by the user (`Kind`, `Slot`, `Category`, `MountPoint`, `Rarity`), all verified as real enum types.
-- `PDA_RPG_RarityPalette` + `DA_RarityPalette` — both palettes populated, Candy Warm active, hexes sRGB→linear converted.
-- 5 enums in `RPG/Data/`, all entry orders verified against spec.
-- **9 items** in `RPG/Items/Assets/`: OHS03 Sword, THS01 Sword, Spear01, Shield04, Wand01, Bow01, Mat1/2/3.
+**Status: STEP 1 COMPLETE IN C++ — regenerated 2026-08-01, second pass.**
 
-**`AttachRotationOffHand` added mid-step (design gap not in the spec):** a one-hand sword is valid in *either* hand — Melee (right) or OffHand for the DoubleSword stance (left) — and the two need different attach rotations, so one `AttachRotation` can't cover it. Items now carry both; step 4's resolver picks by the slot the item is equipped in.
+The catalogue is now backed by `UItemData` / `URarityPalette`. The Blueprint step-1 assets are
+**deleted**. Full record of the pass in **§2.7** below.
+
+- **9 items** in `/Game/RPG/Items/Assets/` — `DA_Item_OHS03_Sword`, `_THS01_Sword`, `_Spear01`,
+  `_Shield04`, `_Wand01`, `_Bow01`, `_Mat1/2/3`, all class `UItemData`.
+- **`/Game/RPG/Data/DA_RarityPalette`** — class `URarityPalette`. Needed **no** data migration:
+  the C++ constructor calls `ResetToDesignDefaults()`, which authors both tables from the design
+  hexes and converts sRGB→linear in code. Confirmed the produced values match what the Blueprint
+  asset held (`DBD5C9` → `(0.708, 0.665, 0.584)`; Candy Warm Common main `A99B86` →
+  `(0.397, 0.328, 0.238)`).
+- Every field was read back off each **saved** asset and compared against the intended value
+  *before* anything was deleted — 10/10 clean, 0 errors.
+
+**`AttachRotationOffHand` (design gap not in the spec):** a one-hand sword is valid in *either* hand — Melee (right) or OffHand for the DoubleSword stance (left) — and the two need different attach rotations, so one `AttachRotation` can't cover it. Items carry both; step 4's resolver picks by the slot the item is equipped in via `GetAttachRotationForSlot()`.
 
 Mesh and rotation values were **read from the live `BP_RPG_PlayerCharacter` CDO** (`StanceRight/LeftMeshes`, `StanceRight/LeftRotations`) rather than retyped, so an equipped item lands identically to the Q-cycle: spear roll 10, shield yaw −180, off-hand sword roll −90/yaw −180, bow yaw 170.
 
-**Outstanding (cosmetic):** `E_RPG_EquipSlot` index 1 is named `Uncommon` — a paste slip from the rarity enum; it should be `OffHand`. The stored index is correct and `DA_Item_Shield04` was authored against index 1, so renaming the entry is display-only and needs no data migration.
+~~**Outstanding (cosmetic):** `E_RPG_EquipSlot` index 1 is named `Uncommon`~~ — **moot.** That enum
+asset is deleted; `EEquipSlot::OffHand` is correctly named in `RPGItemTypes.h`.
+
+---
+
+### 2.7 The regeneration pass (2026-08-01, second session)
+
+**Environment.** Cowork had no `mcp-unreal` connection (see the handoff's environment note), so
+this ran as two Unreal-Python scripts driven from the editor's Output Log. Both are checked in at
+`Content/Python/` and are re-runnable:
+
+| Script | What it does |
+|---|---|
+| `cc_step2_dump.py` | **Read-only.** Confirms the C++ types are registered, dumps all 9 Blueprint DataAssets + the palette + the player CDO stance arrays + the referencer graph of every delete candidate → `Saved/CC_Probe/step2_dump.json` |
+| `cc_step2_author.py` | Builds → verifies → deletes → moves. Aborts before any delete if verification fails. → `Saved/CC_Probe/step2_author.json` |
+
+**The safety shape is the point, and worth reusing:** build the new assets into a throwaway
+`/Game/RPG/_Staging`, read every field back off the *saved* asset, and only then delete the
+originals — each delete gated on the asset having no remaining referencer. A failure anywhere in
+build or verify leaves the old assets untouched and the new ones parked in `_Staging` for
+inspection. Both scripts log per line with an open/close per write, so a crash names its last
+surviving step.
+
+**Bug found and fixed in the step-1 data.** `DA_Item_Bow01` carried its yaw 170 in
+`AttachRotationOffHand`, with `AttachRotation` at zero. The value is correct — it comes from
+`StanceLeftRotations[7]`, which is why it got filed as off-hand — but the bow's slot is `Ranged`,
+so `GetAttachRotationForSlot(Ranged)` returns `AttachRotation` and the 170 would never have been
+read. The bow would have mounted 170° wrong the moment step 4 wired the resolver, and it would
+have presented as a rig bug rather than a data one. `ItemData.h` states `AttachRotation` is the
+field used "when mounted in the RIGHT hand (**or on the bow rig**)", so the value now lives there.
+Every other item was cross-checked against the CDO and matched.
+
+**Deleted (19 assets, leaf-first, each gated on zero referencers):** `BPC_RPG_Inventory` (which
+took the stray `ProbeFunc` with it), `BP_RPG_ItemInstance`, the 9 `DA_Item_*`, `PDA_RPG_Item`, the
+old `DA_RarityPalette`, `PDA_RPG_RarityPalette`, and the 5 `E_RPG_*` enums.
+**`E_RPG_Stance` was explicitly excluded** — it is the stance legend and is still in use.
+
+`BPC_RPG_Inventory` turned out to have **zero** referencers, confirming it was never attached to
+`BP_RPG_PlayerCharacter`. That was the one genuinely risky deletion and the probe settled it
+before the fact rather than after.
+
+**`EInteractPriority` — resolved in favour of keeping it.** §5 step 1 dropped it because
+hand-authoring user-defined enums in Blueprint was expensive; the C++ pivot removed that cost, so
+it stays, with gaps in the 10/50/100 ladder for future tiers.
+
+⚠ **The editor's Git source-control provider ran `git rm` on every deleted asset**, so those
+deletions are already **staged in the index**. Run `git status` before committing. The
+`Unable to Check Out From Revision Control!` dialogs during the move phase are the same provider
+failing to check out files that did not exist yet — benign, the saves all succeeded.
 
 ---
 
@@ -243,17 +312,30 @@ Do **not** port the Unity singleton — get the component off the pawn.
 
 **Risk:** low-medium. Watch BP Map key behaviour with object refs when assets are hot-reloaded in the editor.
 
-#### Status — scaffolding COMPLETE (2026-08-01), logic outstanding
+#### Status — DONE IN C++ (2026-08-01). The Blueprint scaffolding above is deleted.
 
-Built and saved:
-- **`/Game/RPG/Items/BP_RPG_ItemInstance`** (parent `Object`) — `Template` (ref to `PDA_RPG_Item`), `Level`, `BaseDamage`, `DamagePerLevel`. The step-7 fields exist now so nothing has to be re-plumbed later.
-- **`/Game/RPG/Blueprints/BPC_RPG_Inventory`** (parent `ActorComponent`) — `GearBag` (array of instance refs), `Equipped` (array of instance refs, **pre-sized to 4**, index = `E_RPG_EquipSlot`), `Materials` (**map** keyed by `PDA_RPG_Item` ref → int), `Capacity` (default **20**).
+`UInventoryComponent` (`Source/Character_Creator/Inventory/`) supersedes `BPC_RPG_Inventory`
+entirely, and `UItemInstance` supersedes `BP_RPG_ItemInstance`. Both Blueprint assets were removed
+in the regeneration pass (§2.7) — the stray `ProbeFunc` went with them.
 
-The `Equipped`-as-array workaround held up: enum-keyed maps need an enum pin type Python can't build, but Enum→Int works, so `Equipped[Slot]` is fine and mirrors the existing `StanceRightMeshes[CurrentStance]` idiom. `Materials` stayed a genuine map because **object-ref keys _are_ buildable** — which matters, since Unity keys material stacks by asset identity too.
+C++ removes the two workarounds the Blueprint version needed: `Equipped` is a genuine
+`TMap<EEquipSlot, UItemInstance*>` rather than an index-array, and refs can be soft.
 
-**Still to author (Blueprint graphs — node work, not scriptable):** the 9 API functions in §4's table. Empty stubs were deliberately *not* generated: `add_function_graph` can only make parameterless empty graphs, so they'd be clutter rather than a head start.
+The full §4 API plus the three delegates are written. Two changes beyond the spec, both recorded
+in the handoff:
 
-⚠ A stray empty function graph named **`ProbeFunc`** is left on `BPC_RPG_Inventory` from capability probing. Delete it in the editor — `remove_function_graph` crashes the editor and must never be called.
+- **`EquipToSlot(Instance, Slot)` is the real entry point**; `Equip()` is a wrapper passing the
+  template's default slot. Deriving the slot from `Template->Slot` — a single value — meant a
+  one-hand sword authored as `Melee` could never reach `OffHand`, making step 4's stance rows 3
+  (sword+shield) and 4 (double sword) unreachable and `AttachRotationOffHand` dead weight.
+  `CanEquipToSlot()` is permissive in exactly one place: OffHand also accepts `Shield` or `OHS`.
+  `EquipToSlot` clears the instance out of any *other* slot it held, so a sword moved
+  Melee→OffHand can't mount in both hands.
+- **`Unequip()` refuses** (returns false) when the bag is full, rather than destroying the item.
+
+**Not yet exercised.** The component compiles and links but has never been instantiated — nothing
+adds it to `BP_RPG_PlayerCharacter` yet, and no call path reaches `AddItem`/`EquipToSlot`. That
+happens in step 3, which is also where the first real test of the API lands.
 
 ---
 
@@ -273,8 +355,41 @@ Use `SpawnActorDeferred` → set Item + Count → `FinishSpawning` (the UE analo
 **Verify:** hand-place a few `BP_RPG_WorldItem`s in `Lvl_RPG_Test`; walk up, prompt appears, E collects, bag reflects it. Place two overlapping interactables of different priority and confirm arbitration.
 
 **Risks:**
-- MCP **cannot set the `InputAction` pin** on an `EnhancedInputAction` node — creating and wiring `IA_RPG_Interact` into `IMC_RPG_Default` is a manual editor step, and unsaved IMC bindings have previously caused phantom regressions (see the dodge-system notes).
+- MCP **cannot set the `InputAction` pin** on an `EnhancedInputAction` node — wiring the node is a manual editor step. *(Creating the IA asset and the IMC mapping turned out to be scriptable — see the status block.)*
 - The CC-archive assassinate prompt on `BP_RPG_Enemy` is already broken (its overlap casts `OtherActor → BP_RPG_Enemy`, which can never succeed). This new system supersedes it. **Leaving it alone** unless you say otherwise.
+
+#### Status — DONE IN C++, PIE-CONFIRMED (2026-08-01)
+
+Walking up to a pickup shows a prompt; E collects it and the actor destroys itself.
+
+Built as **8 files in `Source/Character_Creator/Interaction/`** — `IRPGInteractable`,
+`UInteractableComponent` (a `USphereComponent` at 150 uu that *is* the trigger and registers
+itself), `UInteractorComponent` (arbitration + `TryInteract()`), `AWorldItem`.
+Names deviate from §3's Blueprint-era table: `AWorldItem` not `BP_RPG_WorldItem`, no `BPI_/BPC_`
+assets. Full detail, traps and design rationale in `.claude/handoff.md`.
+
+**The plan's deterministic-tie-break requirement is met and then some:** priority desc → nearest →
+lowest object name. The last term only fires at identical priority *and* distance; it exists so
+there is no undefined outcome at all.
+
+**Two deliberate deviations:**
+1. **No `WBP_RPG_InteractPrompt` and no `WidgetComponent`.** The prompt is on-screen debug text
+   driven by `UInteractorComponent::OnActiveInteractableChanged`. The real widget belongs to
+   step 6 and subscribes to that delegate without changing this code. Building the widget
+   plumbing now would have blocked all step-3 testing behind hand-built UMG.
+2. **A full bag does not hide the prompt** — `IsInteractEligible` ignores capacity and the press
+   fails loudly. Hiding it reads as "there is nothing here".
+
+**Scriptability finding that contradicts §5's tooling assumptions:** `UInputMappingContext::MapKey`
+and `UnmapKey` are `UFUNCTION(BlueprintCallable)`, so IMC key mappings **are** scriptable. Only the
+`EnhancedInputAction` graph node stays manual. Also, `UInputMappingContext::Mappings` is
+`UE_DEPRECATED(5.7)` — the live data is `DefaultKeyMappings.Mappings`, which is why Python had
+always reported this asset as empty.
+
+**Still untested** (only the happy path ran): priority arbitration across *different* priorities,
+the bag-full path, and partial adds. One fix is written but possibly unrun —
+`Content/Python/cc_step3_trigger.py`, which gives `IA_RPG_Interact` a `UInputTriggerPressed` so
+`Triggered` stops firing every frame the key is held.
 
 ---
 

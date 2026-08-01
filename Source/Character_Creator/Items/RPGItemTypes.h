@@ -70,10 +70,18 @@ enum class EMountPoint : uint8
 	BowRig     UMETA(DisplayName = "Bow Rig")
 };
 
-/** Priority ladder for the interaction system (spec section 5). Higher wins. */
+/**
+ * Priority ladder for the interaction system (spec section 5). Higher wins.
+ *
+ * The gaps are deliberate - they leave room to slot new interaction kinds between the
+ * named tiers without renumbering. None MUST stay at 0: UHT requires a zero entry so a
+ * default-initialised value is meaningful, and it doubles as the "nothing here" result
+ * for the interactor's arbitration.
+ */
 UENUM(BlueprintType)
 enum class EInteractPriority : uint8
 {
+	None         = 0   UMETA(DisplayName = "None"),
 	Pickup       = 10  UMETA(DisplayName = "Pickup"),
 	Open         = 50  UMETA(DisplayName = "Open"),
 	Assassinate  = 100 UMETA(DisplayName = "Assassinate")

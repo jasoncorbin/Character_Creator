@@ -1,22 +1,57 @@
 # Handoff — RPG Character project
 
-> ## ▶ START HERE (next session, 2026-08-01)
+> ## ▶ START HERE (next session — written end of 2026-08-01, session 2)
 >
-> **The active track is the Items / Loot / Inventory-UI port, and it is mid-migration to C++.**
-> The C++ module is written but **has never been compiled**. Do these in order:
+> **STEPS 1, 2 AND 3 ARE DONE IN C++ and PIE-CONFIRMED.** Walking up to a pickup shows a prompt;
+> pressing E collects it and the actor destroys itself. The module builds green.
 >
-> 1. **Confirm the Unreal editor is CLOSED.** (`Get-Process UnrealEditor`). The first build of a
->    new module cannot link while the editor holds the MCPUnreal plugin DLL.
-> 2. **Generate project files, then build** the `Character_CreatorEditor` target — see
->    `docs/ItemsLoot_PortPlan.md` § "C++ migration" for the exact commands and paths.
->    ⚠ The engine is at **`E:\UE4 Projects\_UE4\UE_5.7`**, NOT `C:\Program Files\Epic Games\`
->    (the MCP `status` tool reports a stale Program Files path — do not trust it).
-> 3. **Expect first-compile errors** and fix them — nothing here has been through UHT yet.
-> 4. Have the user reopen the editor, then **regenerate the 9 items + rarity palette** as
->    C++-backed assets and **delete the superseded Blueprint step-1 assets** (list in the plan doc).
-> 5. Resume at **step 3** of the port plan (interaction + world pickup).
+> ### Finish this first — one unverified fix (5 minutes)
+> The last thing done was writing `Content/Python/cc_step3_trigger.py`. **It may not have been
+> run.** It fixes two real faults:
+> 1. `IA_RPG_Interact` had **no triggers**, so `Triggered` fired *every frame the key was held* —
+>    one press logged ~50 pickups. It adds `UInputTriggerPressed`.
+> 2. `IMC_RPG_Default` had **two** E bindings — a stray `IA_Interact` (user-created, nothing
+>    listens to it) alongside `IA_RPG_Interact`. It unmaps the stray.
 >
-> Steps 1–2 of the port plan are otherwise DONE. Full detail in the 2026-08-01 section below.
+> ```
+> py "E:/UE5 Projects/Character_Creator/Content/Python/cc_step3_trigger.py"
+> ```
+> Then PIE and confirm **one press = one log line**. Read
+> `Saved/CC_Probe/step3_trigger.json` for the result. If it already ran, it is a no-op.
+>
+> ### Then: step 3's untested paths (worth an hour before moving on)
+> Only the happy path has been exercised. Untested, in order of how likely they are to be wrong:
+> - **Priority arbitration.** Only the *distance* tiebreak was observed. Place two overlapping
+>   interactables at *different* priorities and confirm the higher one wins regardless of range.
+> - **Bag full** (capacity 20). Expected: prompt still shows, press logs
+>   `[WorldItem] Bag full - '<name>' left on the ground.`, pickup stays. This is deliberate —
+>   see the design note below.
+> - **Partial add.** A gear stack larger than the remaining space should take what fits and
+>   leave the rest in the world with `Count` decremented.
+> - `AWorldItem::Palette` is unset on all 4 placed actors, so `OnItemVisualsApplied` gets white.
+>   Only matters once something consumes the rarity tint.
+>
+> ### Then: **step 4 — equip consumers.** The plan calls it the fiddliest step. Read
+> `docs/ItemsLoot_PortPlan.md` §5 step 4 before starting; it touches the already-working
+> `ApplyStance`, and the rule there is *refactor to source through resolver functions, do not
+> rewrite* — the Q dev-cycle must keep working with an empty inventory.
+>
+> ⚠ The engine is at **`E:\UE4 Projects\_UE4\UE_5.7`**, NOT `C:\Program Files\Epic Games\`.
+> That folder is a connected Cowork folder — **read engine headers rather than inferring APIs.**
+> It paid for itself twice in one session (see "Engine-API corrections" below).
+>
+> **Rebuild command.** Editor must be CLOSED. Add the project-file regeneration line only when
+> files are added or removed.
+> ```powershell
+> $UE = "E:\UE4 Projects\_UE4\UE_5.7"
+> $P  = "E:\UE5 Projects\Character_Creator\Character_Creator.uproject"
+> & "$UE\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.exe" -projectfiles -project="$P" -game -rocket -progress   # only if files added/removed
+> & "$UE\Engine\Build\BatchFiles\Build.bat" Character_CreatorEditor Win64 Development -project="$P" -waitmutex
+> ```
+>
+> ⚠ **Uncommitted, and the editor's Git provider has already STAGED 19 asset deletions**
+> (`git rm`) from the regeneration pass. Run `git status` before committing. User commits
+> manually — never offer to.
 
 When the user says **"let's go" / "time to get started" / "continue"** (or anything like it), read these first, in order, before doing anything:
 
@@ -33,13 +68,176 @@ When the user says **"let's go" / "time to get started" / "continue"** (or anyth
 
 ## Prereqs to check at start
 - **UE editor must be running with the MCPUnreal plugin (port 8090).** Call `mcp__mcp-unreal__status` first to confirm `editor_online` + `plugin_online`. If offline, ask the user to open the editor.
-  - **EXCEPTION right now:** the pending C++ build needs the editor **closed**. Do the build first (see ▶ START HERE), then have them reopen.
   - **If the MCP tools are missing but port 8090 IS listening**, only this session's stdio server died — drive the plugin directly over HTTP instead of blocking the user. See memory `connection-drop-verify`.
+  - ☁ **In a cloud Cowork session there are no `mcp__mcp-unreal__*` tools at all, and the HTTP
+    fallback is unavailable too** — the container cannot reach the user's `127.0.0.1:8090`.
+    Adding `mcp-unreal` to `claude_desktop_config.json` did **not** make it proxy. **Do not burn
+    turns on this.** Use the editor-Python fallback below; it works well.
+
+### ☁ Editor-Python fallback (proven, 2026-08-01 — use this whenever the MCP is absent)
+Write a script, commit it to `Content/Python/`, have the user run it from the editor's
+**Output Log → command box (mode `Cmd`)**:
+```
+py "E:/UE5 Projects/Character_Creator/Content/Python/<script>.py"
+```
+`execute_script`-style calls return no stdout, so **the script must write a result file** to
+`Saved/CC_Probe/` which is then staged back and read. Two working examples are checked in:
+`cc_step2_dump.py` (read-only probe) and `cc_step2_author.py` (build → verify → delete → move).
+
+The shape that made a destructive pass safe, and is worth copying:
+1. a **separate read-only probe first** — dump the data AND the referencer graph of everything
+   you intend to delete, then decide with real numbers rather than assumptions;
+2. build new assets into a **throwaway staging folder**, never over the originals;
+3. **read every field back off the saved asset** and compare;
+4. delete only after 100% verification, **each delete gated on zero remaining referencers**;
+5. move staging onto the real paths last.
+Log per line with an open/close per write, so a crash names its last surviving step.
 - Project: `BP_RPG_PlayerCharacter`, `ABP_RPG_Player`, assets under `/Game/RPG/`. CC assets (`BP_CC_Character`, etc.) are an untouched archive — don't edit unless explicitly asked.
 - **This is no longer a Blueprint-only project.** A `Character_Creator` C++ game module was added 2026-08-01 (`Source/Character_Creator/`). Gameplay data + logic go in C++ now; Blueprint stays for actors, UI and glue.
 - ☠ **Never call `BlueprintEditorLibrary.remove_function_graph`** — it hard-crashes the editor. See memory `mcp-blueprint-editing`.
 
-## Where we are (2026-08-01 — ITEMS/LOOT TRACK STARTED, C++ MIGRATION PENDING FIRST BUILD)
+## Where we are (2026-08-01, session 2 — STEPS 1 + 2 LIVE IN C++)
+
+**The data layer is real in the editor.** Ran without any MCP connection, via two Unreal-Python
+scripts (both checked in at `Content/Python/`, both re-runnable):
+
+- `cc_step2_dump.py` — read-only. Confirmed all 12 C++ types registered and all 7 enums in the
+  right entry order; dumped the 9 Blueprint DataAssets, the palette, the player CDO stance arrays,
+  and the referencer graph of every delete candidate.
+- `cc_step2_author.py` — built 10 assets into `/Game/RPG/_Staging`, verified every field off the
+  saved asset (**10/10 clean**), deleted **19** Blueprint assets, moved the new ones onto the real
+  paths, dropped staging. **0 errors.**
+
+**Live now:** 9 `UItemData` assets in `/Game/RPG/Items/Assets/` and `URarityPalette` at
+`/Game/RPG/Data/DA_RarityPalette`.
+
+**The palette needed no migration.** `URarityPalette`'s constructor calls
+`ResetToDesignDefaults()`, which authors both tables and does sRGB→linear in code. Verified its
+output matches what the Blueprint asset held (`DBD5C9` → `(0.708, 0.665, 0.584)`).
+
+**🐛 Data bug found and fixed — `DA_Item_Bow01`.** Yaw 170 was in `AttachRotationOffHand` with
+`AttachRotation` at zero. The value is right (it comes from `StanceLeftRotations[7]`, hence the
+off-hand filing), but the bow's slot is `Ranged`, so `GetAttachRotationForSlot(Ranged)` returns
+`AttachRotation` — the 170 would never have been read. Step 4 would have mounted the bow 170° off
+and it would have looked like a rig problem. `ItemData.h` says `AttachRotation` is the field used
+"when mounted in the RIGHT hand (**or on the bow rig**)". Moved. Every other item cross-checked
+against the CDO and matched.
+
+**`BPC_RPG_Inventory` had zero referencers** — never attached to `BP_RPG_PlayerCharacter`. That
+was the one genuinely risky deletion, and the probe settled it beforehand rather than after.
+`E_RPG_Stance` was explicitly kept.
+
+**`EInteractPriority` — resolved: keep it.** The only argument for dropping it was the cost of
+hand-authoring user-defined enums in Blueprint, and the C++ pivot removed that cost.
+
+**`UInventoryComponent` compiles but has never run.** ~~Nothing instantiates it yet.~~ It runs now —
+step 3 put it on the player and pickups go into it.
+
+---
+
+## Step 3 — interaction + world pickup — DONE, PIE-CONFIRMED (2026-08-01)
+
+**8 new files in `Source/Character_Creator/Interaction/`:**
+
+| File | What |
+|---|---|
+| `RPGInteractable.h/.cpp` | `IRPGInteractable` — `GetInteractPriority` / `GetPromptLabel` / `IsInteractEligible` / `Interact`. The **.cpp is deliberately empty** — see the C2084 trap below. |
+| `InteractableComponent.h/.cpp` | `UInteractableComponent : USphereComponent`, 150 uu. IS the trigger. Registers itself with any `UInteractorComponent` that overlaps. Forwards every query to the owner's interface if implemented, else to its own `DefaultPriority`/`DefaultPromptLabel`. |
+| `InteractorComponent.h/.cpp` | On the player. Arbitrates one winner, `TryInteract()` for the input binding, `OnActiveInteractableChanged` / `OnInteractAttempted` delegates. |
+| `WorldItem.h/.cpp` | `AWorldItem` — the pickup. Static + skeletal display (bows are skeletal), placeholder cube for meshless items, optional spin, `SpawnWorldItem` deferred-spawn helper for step 5's loot drops. |
+
+**Wired and live:** `Inventory` + `Interactor` components on `BP_RPG_PlayerCharacter`;
+`IA_RPG_Interact` in `/Game/RPG/Input/`; `IMC_RPG_Default` maps it to **E**; 4 test pickups in
+`Lvl_RPG_Test` (sword, shield, bow, Mat1 ×5) anchored on the PlayerStart.
+Graph edit (manual, done): `EnhancedInputAction IA_RPG_Interact` → `Triggered` → `Interactor` →
+`Try Interact`.
+
+### Design decisions worth not re-litigating
+
+- **Arbitration is fully ordered: priority desc → nearest → lowest object name.** Unity used a
+  `HashSet` and its own source flags the iteration order as unreliable, so equal-priority ties
+  resolved differently run to run. The name term only fires at identical priority *and* identical
+  distance; it exists so there is no undefined outcome at all.
+- **A full bag does NOT hide the prompt.** `IsInteractEligible` deliberately ignores capacity and
+  the press fails loudly instead. Hiding it reads as "there is nothing here", which is a worse
+  lie than "that didn't work".
+- **`Interact` treats `AddItem`'s return as a count, not a bool.** Partial pickup decrements
+  `Count` and leaves the remainder in the world. Treating it as a bool is exactly the Unity bug
+  the C++ API was reshaped to prevent.
+- **No UMG dependency.** The prompt is on-screen debug text (`UInteractorComponent::bShowDebugPrompt`,
+  default on). `WBP_RPG_InteractPrompt` belongs to step 6; it subscribes to
+  `OnActiveInteractableChanged` and this code does not change. This is a deliberate deviation from
+  the plan's "the interactable owns a WidgetComponent" — building that plumbing now would have
+  blocked step-3 testing behind hand-built UMG.
+- **Names deviate from the plan's Blueprint-era table:** `AWorldItem` not `BP_RPG_WorldItem`,
+  `UInteractableComponent`/`UInteractorComponent` not `BPC_*`, no `BPI_RPG_Interactable`.
+
+### Build traps hit (all fixed — read before touching this module)
+
+5. **UHT: a `UFUNCTION` parameter may not shadow a property in scope.** `SpawnWorldItem(… AActor* Owner)`
+   → *"cannot be defined … as it is already defined in scope 'AActor'"*. Renamed to `SpawnOwner`.
+6. ☠ **For a `BlueprintNativeEvent` on a `UINTERFACE`, UHT emits the `_Implementation` bodies
+   INLINE into the generated header.** Defining them in the .cpp is a redefinition (**C2084**).
+   This is the opposite of a `BlueprintNativeEvent` on a normal `UCLASS`, where you must supply
+   the body. `RPGInteractable.cpp` is intentionally empty and says so.
+   The generated defaults value-initialise: priority `None`, empty label, `IsInteractEligible`
+   **false**, `Interact` false — a good default, since a half-implemented interactable stays
+   silent instead of showing a dead prompt.
+7. **C4263/C4264 — do not name a component method `SetActive`.** `UActorComponent::SetActive(bool, bool)`
+   already exists; an overload hides the base virtual. Renamed to `SetActiveInteractable`.
+
+### Engine-API corrections (found by READING the engine, not guessing)
+
+- **`USkeletalMeshComponent::SetSkeletalMesh` is the pre-5.1 spelling.** Use
+  **`SetSkeletalMeshAsset(USkeletalMesh*)`**. A deprecation is a hard failure under this
+  project's warnings-as-errors.
+- ⚠ **`UInputMappingContext::Mappings` is `UE_DEPRECATED(5.7)` — the live data is
+  `DefaultKeyMappings.Mappings`** (an `FInputMappingContextMappingData` struct).
+  **This retires the long-standing belief that "Python reports `IMC_RPG_Default` as 0 mappings
+  because the API doesn't round-trip."** It was never a round-trip failure — every read was
+  hitting the dead property. Reading `default_key_mappings.mappings` returns all 12 correctly.
+- ⚠ **`UInputMappingContext::MapKey` / `UnmapKey` / `UnmapAllKeysFromAction` are
+  `UFUNCTION(BlueprintCallable)` — key mapping IS scriptable.** The handoff's old "manual editor
+  step" claim applies **only** to the `EnhancedInputAction` NODE in a graph (its InputAction pin
+  still cannot be set from script), not to the mapping itself.
+- `unreal.EnhancedInputLibrary.request_rebuild_control_mappings_for_context` is **not** exposed to
+  Python. A PIE restart covers it.
+
+### Enhanced Input behaviour, confirmed in PIE
+
+**An Input Action with NO triggers fires `Triggered` on every frame the key is held.** One E press
+logged ~50 pickups. Fix is `UInputTriggerPressed` **on the action** (not switching the graph to the
+`Started` pin) so every future consumer inherits single-fire semantics. This is the same root cause
+as the existing `IA_RPG_Attack` note — 0 triggers, opposite symptom (`Completed` on release).
+
+### Python gotcha that cost a debugging round
+
+**`unreal.InventoryComponent` is a Python TYPE, not a UClass.** `SomeClass.get_name()` on it raises
+*"unbound method _ObjectBase.get_name() needs an argument"*. Use **`isinstance(obj, unreal.Foo)`**
+for checks and **`unreal.Foo.static_class()`** wherever the C++ API wants a `UClass`. This silently
+skipped adding both components to the player BP, which presented as "the prompt never appears".
+
+### Scripts in `Content/Python/` (all re-runnable, all write to `Saved/CC_Probe/`)
+
+| Script | Purpose |
+|---|---|
+| `cc_step2_dump.py` | Read-only probe of the old Blueprint data + CDO + referencer graph |
+| `cc_step2_author.py` | Build → verify → delete → move, for the C++ asset regeneration |
+| `cc_step3_wire.py` | Components + IA asset + test pickups. **Its component step is broken** (the `get_name()` bug) — superseded by `cc_step3_fix.py` |
+| `cc_step3_fix.py` | Adds the two player components correctly; verifies pickups and IMC |
+| `cc_step3_probe_input.py` | Compares `IA_RPG_Interact` against known-good actions; checks IMC references via the asset registry |
+| `cc_step3_mapkey.py` | Reads `DefaultKeyMappings` correctly; maps E via `MapKey` |
+| `cc_step3_trigger.py` | **May not have been run** — adds `UInputTriggerPressed`, unmaps the stray `IA_Interact` |
+
+### Loose ends
+
+- `IA_Interact` (stray asset, `/Game/RPG/Input/`) — created by hand, now unmapped and unreferenced.
+  Delete it or keep it; nothing depends on it.
+- `docs/ItemsLootUI_MechanicsSpec_ForUE5.md` is referenced by the port plan as its companion spec
+  but **does not exist in `docs/`**. If it matters, it is probably still in the Unity repo at
+  `E:\Unity\Unity_Procedural_Level_Creator\`.
+
+## Where we are (2026-08-01, session 1 — ITEMS/LOOT TRACK STARTED, C++ MIGRATION PENDING FIRST BUILD)
 
 **New track.** The player-character work is complete; this session opened the **Items / Loot / Inventory-UI** port to reach parity with the Unity project. Planning doc: **`docs/ItemsLoot_PortPlan.md`** (7 steps, sized, with per-step integration points and risks). Read it before touching anything.
 
@@ -49,7 +247,46 @@ When the user says **"let's go" / "time to get started" / "continue"** (or anyth
 - Python **can** author DataAsset classes, typed/object/array/map variables, and DataAsset instances.
 - Python **cannot** create or populate User-Defined **Enums** or **Structs** (no API exists — `FEnumEditorUtils` is C++-only), cannot make **enum-typed** or **soft-ref** variables, and cannot author **graph nodes**. That last one is fatal for steps 2/4/5/7, which are mostly logic.
 - Toolchain verified present: **Visual Studio Community 2026** + full engine w/ `Build.bat` + UBT at `E:\UE4 Projects\_UE4\UE_5.7`.
-- → `Source/Character_Creator/` written (14 files): `RPGItemTypes.h` (5 enums + `FRarityColors`), `ItemData`, `RarityPalette`, `ItemInstance`, `InventoryComponent`, module + target files. `.uproject` declares the module. **NOT YET COMPILED — that is the next action.**
+- → `Source/Character_Creator/` written (14 files): `RPGItemTypes.h` (6 enums + `FRarityColors`), `ItemData`, `RarityPalette`, `ItemInstance`, `InventoryComponent`, module + target files. `.uproject` declares the module. **BUILDS GREEN as of 2026-08-01.**
+
+**First-build traps (all fixed — read before touching the module or its Build.cs):**
+1. **Stale UBT-generated target rules.** A BP-only project has UBT author temporary
+   `Character_CreatorTarget` / `Character_Creator` rules classes into `Intermediate/Source/`.
+   Once real ones appeared in `Source/`, both were in scope → `CS0101 already contains a
+   definition`. UBT self-cleaned them on the next run ("no longer being treated as a
+   code-based project"). If it ever recurs, delete `Intermediate/Source/`.
+2. **`BuildSettingsVersion.V5` → `V6` in BOTH target files.** V5 leaves
+   `UndefinedIdentifierWarningLevel = Off`, but the installed engine's `UnrealEditor`
+   binaries were built with it at `Error`. A project target that shares build products with
+   UnrealEditor may not change global compile settings → *"modifies the values of
+   properties … This is not allowed."* V6 matches the engine, so nothing is modified.
+   **Do NOT take the error message's `TargetBuildEnvironment.Unique` suggestion** — that
+   forces a full from-source engine rebuild.
+3. **UHT runs `-WarningsAsErrors` under `-installed`.** Every UHT warning is fatal.
+   `EInteractPriority` started at `Pickup = 10` with no zero entry → fatal. **Every
+   `UENUM` in this module must have an entry at 0.**
+4. ☠ **`PublicIncludePaths.Add(ModuleDirectory)` in `Character_Creator.Build.cs` is
+   load-bearing.** The module has no Public/Private split and its sources live in `Items/`
+   and `Inventory/`. UBT does **not** put the module root on the include path by itself
+   under V6 (which disables the legacy public/parent include-path behaviour), so every
+   `#include "Items/…"` fails with C1083 without that line. Never delete it.
+5. **Toolchain warning, benign so far:** VS 2026 ships MSVC 14.51.36248; UE 5.7 prefers
+   14.44.35207. If errors ever appear *inside engine headers* rather than our files, that
+   is the cause — install the 14.44 toolset or pin `WindowsPlatform.CompilerVersion`.
+6. **`Plugin 'MCPUnreal' does not list plugin 'Fab' as a dependency`** — pre-existing gap in
+   the plugin's `.uplugin`, unrelated to this module, non-fatal. Ignore.
+
+**Design fix made during the build pass — `Equip` could not reach the off-hand.**
+`UInventoryComponent::Equip()` derived its target slot from `Instance->GetSlot()`
+(= `Template->Slot`), which is a single value — so a one-hand sword authored as `Melee`
+could **never** be equipped into `OffHand`. That makes step 4's stance rows 3 (sword+shield)
+and 4 (double sword) unreachable and `AttachRotationOffHand` dead weight. Added
+`EquipToSlot(Instance, Slot)` + `CanEquipToSlot()`; `Equip()` is now a wrapper passing the
+template default. `CanEquipToSlot` is permissive in exactly one place: OffHand also accepts
+`Shield` or `OHS`. `EquipToSlot` also clears the instance out of any *other* slot it held.
+Also: `Unequip()` now **refuses** (returns false) when the bag is full instead of destroying
+the item, and `UItemData` lost its `Const` UCLASS specifier with all properties moved
+`EditDefaultsOnly` → `EditAnywhere` so the DataAssets are actually editable.
 
 **Step 1 (data layer) — DONE in Blueprint, being re-done in C++.** Before the pivot: 5 enums (user-authored), `PDA_RPG_Item`, `PDA_RPG_RarityPalette` + `DA_RarityPalette` (both palettes, sRGB→linear), and **9 items** in `/Game/RPG/Items/Assets/` (OHS03 Sword, THS01 Sword, Spear01, Shield04, Wand01, Bow01, Mat1/2/3). All to be **deleted and regenerated** against the C++ classes.
 - Mesh + rotation values were read **off the live `BP_RPG_PlayerCharacter` CDO** (`StanceRight/LeftMeshes`, `StanceRight/LeftRotations`) so equipped items land identically to the Q-cycle. Do the same when regenerating: spear roll 10, shield yaw −180, off-hand sword roll −90/yaw −180, bow yaw 170.

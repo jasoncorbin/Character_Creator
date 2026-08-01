@@ -7,6 +7,10 @@
         "MCP_UNREAL_PROJECT": "E:\\UE5 Projects\\Character_Creator\\Character_Creator.uproject",
         "MCP_UNREAL_DOCS_INDEX": "D:\\mcp-unreal\\docs\\index.bleve"
       }
+    },
+    "unreal-mcp": {
+      "type": "http",
+      "url": "http://127.0.0.1:8000/mcp"
     }
   }
 }

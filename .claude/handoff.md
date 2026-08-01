@@ -1,9 +1,28 @@
 # Handoff — RPG Character project
 
+> ## ▶ START HERE (next session, 2026-08-01)
+>
+> **The active track is the Items / Loot / Inventory-UI port, and it is mid-migration to C++.**
+> The C++ module is written but **has never been compiled**. Do these in order:
+>
+> 1. **Confirm the Unreal editor is CLOSED.** (`Get-Process UnrealEditor`). The first build of a
+>    new module cannot link while the editor holds the MCPUnreal plugin DLL.
+> 2. **Generate project files, then build** the `Character_CreatorEditor` target — see
+>    `docs/ItemsLoot_PortPlan.md` § "C++ migration" for the exact commands and paths.
+>    ⚠ The engine is at **`E:\UE4 Projects\_UE4\UE_5.7`**, NOT `C:\Program Files\Epic Games\`
+>    (the MCP `status` tool reports a stale Program Files path — do not trust it).
+> 3. **Expect first-compile errors** and fix them — nothing here has been through UHT yet.
+> 4. Have the user reopen the editor, then **regenerate the 9 items + rarity palette** as
+>    C++-backed assets and **delete the superseded Blueprint step-1 assets** (list in the plan doc).
+> 5. Resume at **step 3** of the port plan (interaction + world pickup).
+>
+> Steps 1–2 of the port plan are otherwise DONE. Full detail in the 2026-08-01 section below.
+
 When the user says **"let's go" / "time to get started" / "continue"** (or anything like it), read these first, in order, before doing anything:
 
-1. **`docs/RPG_BuildProgress.md`** — the running build log. Start at the **▶ RESUME HERE** block at the top (it states current state + next steps), then skim the latest session entries at the bottom.
-2. **`docs/RPG_CharacterArchitecture.md`** — the approved architecture (the plan we build against).
+1. **`docs/ItemsLoot_PortPlan.md`** — **the active plan.** 7 steps, current status, decisions locked, tooling limits. Its companion spec is `docs/ItemsLootUI_MechanicsSpec_ForUE5.md` (the *what*; the plan is the *how*).
+2. **`docs/RPG_BuildProgress.md`** — the running build log for the (complete) player-character track. Start at the **▶ RESUME HERE** block, then skim the latest entries.
+3. **`docs/RPG_CharacterArchitecture.md`** — the approved architecture (the plan we build against).
 3. **Auto-memory** `MEMORY.md` (loaded automatically) — especially:
    - `rpg-bow-setup.md` — **the ranged/bow track — most relevant right now** (charge/release, shoulder cam, what's next)
    - `rpg-stance-switch.md` — the 8-stance cycle + ApplyStance (`CurrentStance` is an int, by design)
@@ -14,7 +33,38 @@ When the user says **"let's go" / "time to get started" / "continue"** (or anyth
 
 ## Prereqs to check at start
 - **UE editor must be running with the MCPUnreal plugin (port 8090).** Call `mcp__mcp-unreal__status` first to confirm `editor_online` + `plugin_online`. If offline, ask the user to open the editor.
+  - **EXCEPTION right now:** the pending C++ build needs the editor **closed**. Do the build first (see ▶ START HERE), then have them reopen.
+  - **If the MCP tools are missing but port 8090 IS listening**, only this session's stdio server died — drive the plugin directly over HTTP instead of blocking the user. See memory `connection-drop-verify`.
 - Project: `BP_RPG_PlayerCharacter`, `ABP_RPG_Player`, assets under `/Game/RPG/`. CC assets (`BP_CC_Character`, etc.) are an untouched archive — don't edit unless explicitly asked.
+- **This is no longer a Blueprint-only project.** A `Character_Creator` C++ game module was added 2026-08-01 (`Source/Character_Creator/`). Gameplay data + logic go in C++ now; Blueprint stays for actors, UI and glue.
+- ☠ **Never call `BlueprintEditorLibrary.remove_function_graph`** — it hard-crashes the editor. See memory `mcp-blueprint-editing`.
+
+## Where we are (2026-08-01 — ITEMS/LOOT TRACK STARTED, C++ MIGRATION PENDING FIRST BUILD)
+
+**New track.** The player-character work is complete; this session opened the **Items / Loot / Inventory-UI** port to reach parity with the Unity project. Planning doc: **`docs/ItemsLoot_PortPlan.md`** (7 steps, sized, with per-step integration points and risks). Read it before touching anything.
+
+**Decisions locked by the user (revisit during testing, not before):** instance model front-loaded to step 2 · hero preview = separate always-idle instance · palette = **Candy Warm** · ~9 items authored by hand now · take the arrow-damage-from-item win in step 4 · modular-character direction out of scope · **UE 5.8 upgrade deferred to after step 5, before step 6** (needs MCPUnreal to rebuild against 5.8 — test on a COPY first).
+
+**⚠ THE BIG CHANGE — this project now has C++.** Mid-session we measured the real cost of Blueprint-only and the user chose to migrate the data + logic layer:
+- Python **can** author DataAsset classes, typed/object/array/map variables, and DataAsset instances.
+- Python **cannot** create or populate User-Defined **Enums** or **Structs** (no API exists — `FEnumEditorUtils` is C++-only), cannot make **enum-typed** or **soft-ref** variables, and cannot author **graph nodes**. That last one is fatal for steps 2/4/5/7, which are mostly logic.
+- Toolchain verified present: **Visual Studio Community 2026** + full engine w/ `Build.bat` + UBT at `E:\UE4 Projects\_UE4\UE_5.7`.
+- → `Source/Character_Creator/` written (14 files): `RPGItemTypes.h` (5 enums + `FRarityColors`), `ItemData`, `RarityPalette`, `ItemInstance`, `InventoryComponent`, module + target files. `.uproject` declares the module. **NOT YET COMPILED — that is the next action.**
+
+**Step 1 (data layer) — DONE in Blueprint, being re-done in C++.** Before the pivot: 5 enums (user-authored), `PDA_RPG_Item`, `PDA_RPG_RarityPalette` + `DA_RarityPalette` (both palettes, sRGB→linear), and **9 items** in `/Game/RPG/Items/Assets/` (OHS03 Sword, THS01 Sword, Spear01, Shield04, Wand01, Bow01, Mat1/2/3). All to be **deleted and regenerated** against the C++ classes.
+- Mesh + rotation values were read **off the live `BP_RPG_PlayerCharacter` CDO** (`StanceRight/LeftMeshes`, `StanceRight/LeftRotations`) so equipped items land identically to the Q-cycle. Do the same when regenerating: spear roll 10, shield yaw −180, off-hand sword roll −90/yaw −180, bow yaw 170.
+- **Design gap found and closed:** a one-hand sword is valid in either hand (Melee right, OffHand left for DoubleSword) and the off-hand bone is mirrored, so items carry **both** `AttachRotation` and `AttachRotationOffHand`. Not in the spec — comes from the rig.
+
+**Step 2 (inventory) — scaffolded in BP, superseded by the C++ `UInventoryComponent`.** The C++ version fixes both of Unity's documented bugs: `Equip` moves the instance out of the bag and **returns the displaced item to it**, and `OnEquipChanged(Slot, New, Old)` carries the slot. `AddItem` returns the **count actually added** (not a bool) so a pickup can't silently lose the remainder of a partial add.
+
+**Traps hit this session (all now in memory `mcp-blueprint-editing`):**
+- ☠ **`BlueprintEditorLibrary.remove_function_graph` CRASHES the editor** (access violation in `python311.dll`). Found by elimination after a 9-op script killed the editor. **Never call it.** Treat `rename_graph`/`remove_graph` as equally unproven.
+- **Batching is what made that expensive** — no incremental logging meant no signal about where it died. Pattern that works: **one risky op per `execute_script` call**, plus a `log()` helper doing `with open(RESULT,"a")` per line (open/close per write = guaranteed flush) so a crash pinpoints the last surviving step. Run probes ALONE.
+- MCP `blueprint_modify add_variable` only ever sets `PinCategory` (source: `BlueprintRoutes.cpp:309-311`) — that is *why* it fakes enums as int. Use the Python `BlueprintEditorLibrary` factories instead, always.
+- `data_asset_ops` is **DataTables-only** despite the name.
+- `execute_script` returns no stdout — have the script write a result file and Read it.
+
+**Also this session:** `docs/design/` now holds the Candy Cloud handoff (README, 3 mock HTMLs, 4 reference PNGs) copied from the Unity repo at `E:\Unity\Unity_Procedural_Level_Creator\`. Note the PNGs render **Classic Bright**, not the chosen Candy Warm — trust the palette asset, not the screenshots. `.mcp.json` also gained an `unreal-mcp` HTTP entry pointing at `127.0.0.1:8000/mcp`; that is Epic's **UE 5.8** in-editor MCP server and will not connect until the engine is upgraded. Harmless until then.
 
 ## Where we are (2026-07-18, session 3 — RANGED CROSSHAIR + AIM-PARALLAX FIX COMPLETE)
 **PIE-confirmed by user:** crosshair shows/hides correctly across all stances, free-aim arrows land where the crosshair points at close range, lock-on unaffected. One cosmetic deferred (below).

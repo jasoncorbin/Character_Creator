@@ -75,17 +75,22 @@ public:
 	// --- equip resolvers (plan step 4a) --------------------------------------------------
 	//
 	// Contract for all three: the OUT params are ALWAYS written with the value to use, so the
-	// caller never needs its own fallback branch. The bool return says only where the value
-	// came from - true = an equipped item, false = the stance table.
+	// caller never needs a fallback branch of its own. Equipped items win; the stance tables
+	// are the fallback. That is what keeps the Q dev-cycle working with an empty inventory,
+	// which spec 6c explicitly requires.
 	//
-	// Equipped items win; the tables are the fallback. That is what keeps the Q dev-cycle
-	// working with an empty inventory, which spec 6c explicitly requires.
+	// These return VOID deliberately. An earlier revision returned bool ("did this come from
+	// an item?"), which was a trap: UE's Python binding maps a bool-returning UFUNCTION with
+	// out-params to "tuple if true, None if false", so the fallback path - the common one -
+	// silently dropped both outputs and could not be tested. A bool return also just reads as
+	// success/failure to anyone else. The provenance bit was never needed: the only caller
+	// that cares is the bow rig, and that case is already expressed by OutMesh being null.
 
 	UFUNCTION(BlueprintPure, Category = "RPG|Equip")
-	bool ResolveRightHandMount(UStaticMesh*& OutMesh, FRotator& OutRotation) const;
+	void ResolveRightHandMount(UStaticMesh*& OutMesh, FRotator& OutRotation) const;
 
 	UFUNCTION(BlueprintPure, Category = "RPG|Equip")
-	bool ResolveLeftHandMount(UStaticMesh*& OutMesh, FRotator& OutRotation) const;
+	void ResolveLeftHandMount(UStaticMesh*& OutMesh, FRotator& OutRotation) const;
 
 	/**
 	 * The bow rig is the odd one out: there is no StanceBowMeshes table, because the Bow
@@ -93,7 +98,7 @@ public:
 	 * fallback path OutMesh is null, meaning "leave the component's mesh alone".
 	 */
 	UFUNCTION(BlueprintPure, Category = "RPG|Equip")
-	bool ResolveBowRigMount(USkeletalMesh*& OutMesh, FRotator& OutRotation) const;
+	void ResolveBowRigMount(USkeletalMesh*& OutMesh, FRotator& OutRotation) const;
 
 	// --- damage source (plan step 4b) ----------------------------------------------------
 	// Pulled at swing time, never cached: an equip swap mid-combo then lands on the very next

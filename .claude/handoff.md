@@ -1,9 +1,58 @@
 # Handoff — RPG Character project
 
-> ## ▶ START HERE (next session — written end of 2026-08-01, session 3)
+> ## ▶ START HERE (session 4 — written end of 2026-08-01, session 3)
 >
-> **STEPS 1, 2 AND 3 ARE DONE IN C++, PIE-CONFIRMED, AND THE INPUT PATH IS NOW VERIFIED ON DISK.**
-> The module builds green. **Next real work is step 4.**
+> **STEPS 1–4 ARE DONE.** Step 4 — the step the plan calls the fiddliest and highest-risk — is
+> complete and **PIE-verified end to end**. `BP_RPG_PlayerCharacter` now inherits from a C++ base.
+>
+> ### ⛔ FIRST TASK: the `BPC_PlayerStats` health-bar bug — diagnosed, approach agreed, NOT started
+>
+> Root cause is **fully established** (don't re-investigate, go straight to the fix).
+>
+> **Symptom:** every time an RPG enemy takes damage, PIE logs 6 errors —
+> `Accessed None trying to read (real) property As Dummy in BPC_PlayerStats_C`, on nodes
+> `Set Percent` and `SetText (Text)` in `Decrease Health`.
+>
+> **Root cause:** `Decrease Health` picks its target widget with a **`Select`** node keyed on
+> `isPlayer`:
+> - Option 0 (false) ← `As Dummy` → `Health Bar UI` → `HealthBar` / `HelathText`
+> - Option 1 (true) ← `BP CC Character` → `Hud Widget` → `Health_Bar` / `HelathText`
+>
+> `BPC_PlayerStats` is owned by **three** actors: `BP_CC_Character` (isPlayer=true),
+> `Dummy` (As Dummy set), and **`BP_RPG_Enemy` — which sets NEITHER**, because it is not a
+> `Dummy`. So for an RPG enemy the Select resolves to Option 0 and dereferences a null three
+> times (`As Dummy` → `Health Bar UI` → `HealthBar`) = 3 errors × 2 nodes = the 6 per hit.
+> NB `BP_RPG_PlayerCharacter` does **not** have this component at all — the player is not involved.
+>
+> **This is not just log spam: `BP_RPG_Enemy`'s health bar has never updated.** It owns a
+> `Health Bar Wigget` WidgetComponent and a `Health Bar UI` variable, but this code can only
+> talk to a `Dummy`. ⚠ Ask the user to confirm they've never seen an RPG enemy bar move.
+>
+> **Second, latent defect:** a Blueprint `Select` evaluates **ALL** option chains eagerly, so the
+> Dummy chain is dereferenced even when `isPlayer` is true. **A `Select` can never be a null guard.**
+>
+> **Agreed fix (user approved the approach, not yet the go-ahead to edit):** stop switching on
+> concrete owner classes. Both `Dummy` and `BP_RPG_Enemy` already carry a `Health Bar Wigget`
+> **WidgetComponent**, so on BeginPlay have the component ask its **owner** for that widget and
+> cache the `ProgressBar` + `TextBlock` refs. Then `Decrease Health` uses a **Branch** (not a
+> Select) + `IsValid`, so only one path is ever evaluated.
+> Fixes all three owners at once, future enemies work for free, and **all edits stay inside
+> `BPC_PlayerStats`** — no changes to `Dummy`, `BP_CC_Character` or `BP_RPG_Enemy`.
+> Cost: variables addable via Python; the graph restructure needs the user to place ~6 nodes
+> (Branch ×2, IsValid, duplicate `Set Percent`/`SetText` for the enemy path), then I wire pins.
+>
+> ⚠ `BPC_PlayerStats` is **CC-archive** code the user had previously frozen
+> ("leave for now" 2026-07-16). It is in scope now **only because the user asked** — do not
+> extend the edit beyond this fix.
+>
+> ### Then: step 5 — loot tables + dropper
+> Needs an `OnDeath` dispatcher on `BP_RPG_Enemy` (fire on the TRUE branch of `IsPlayerDead?`,
+> **before** the 2 s delay). Known landmine: an arrow kill runs the whole death chain inside a
+> collision callback — spawn deferred, don't mutate actors during the overlap.
+>
+> ---
+>
+> **The module builds green.**
 >
 > ### ☠ Read this before trusting any "verified" claim in this file
 > Session 2 recorded step 3's E binding as PIE-confirmed. **It was gone at the start of session 3**
@@ -148,6 +197,110 @@ hand-authoring user-defined enums in Blueprint, and the C++ pivot removed that c
 
 **`UInventoryComponent` compiles but has never run.** ~~Nothing instantiates it yet.~~ It runs now —
 step 3 put it on the player and pickups go into it.
+
+---
+
+## Step 4 — equip consumers — DONE, PIE-VERIFIED (2026-08-01, session 3)
+
+**The plan's highest-risk step. It touched `ApplyStance` and `MeleeHit` and did NOT regress the
+Q dev-cycle.** The user chose to close the BP/C++ seam properly rather than work around it.
+
+### `BP_RPG_PlayerCharacter` now inherits from `ARPGPlayerCharacter` (C++)
+
+New files: `Source/Character_Creator/Player/RPGPlayerCharacter.{h,cpp}`.
+
+**Six stance properties moved down from Blueprint**, named IDENTICALLY to the old BP variables:
+`CurrentStance`, `StanceRight/LeftMeshes`, `StanceRight/LeftRotations`, `StanceIsRanged`.
+All `EditAnywhere`, so they stay tunable in the Details panel with no rebuild.
+**Deliberately left in Blueprint:** the 2 combo tables, 4 dodge tables, `BowDrawAnims`,
+`ComboIndex`, `ActorToTargetLock`, `IsDodging`, `bIsCharging`, `ReticleWidget` — C++ doesn't need
+them, and every name left in BP is one less collision to handle. 6 collisions instead of 18.
+
+**☠ THE REPARENT RECIPE — UE resolves name collisions ITSELF (proven, then done for real):**
+`BlueprintEditorLibrary.reparent_blueprint(bp, unreal.Foo.static_class())` → `compile_blueprint`
+→ `save_asset`. UE **removes** the colliding BP variable, **transfers its authored value onto the
+inherited C++ property**, and **rebinds all 189 nodes by name**. Logs one
+`LogK2Compiler: ValidateVariableNames … is already taken by …` **warning** per collision — warnings,
+NOT errors. There is **no `remove_member_variable`** in `BlueprintEditorLibrary` and you don't need one.
+**Proof the values transferred** (rather than reverting to the C++ constructor's `SetNum(8)` blanks):
+bow yaw 170, spear roll 10, shield yaw −180, off-hand sword −90/−180, `StanceIsRanged[6,7]=true`
+all read back correct. **24/24 verification checks passed before saving.**
+Safety shape that made this cheap: dump the CDO first (`Saved/CC_Probe/player_cdo_dump.json`),
+**reparent a DUPLICATE first** to answer "do the nodes rebind?", then do the real one.
+
+### The API (all `BlueprintPure` on the character)
+
+| Function | Behaviour |
+|---|---|
+| `ResolveRightHandMount(OutMesh, OutRotation)` | Melee first, then Ranged (a **wand is Ranged but right-handed**) |
+| `ResolveLeftHandMount(OutMesh, OutRotation)` | OffHand slot |
+| `ResolveBowRigMount(OutMesh, OutRotation)` | Ranged w/ `MountPoint==BowRig`; **null OutMesh = "leave the Bow component's mesh alone"** |
+| `GetMeleeDamage()` / `GetRangedDamage()` | Equipped item's damage, else `UnarmedMeleeDamage`(20) / `DefaultRangedDamage`(30) |
+| `DeriveStanceFromEquipment()` | The 8-row table in text, switching on `Category`. **Ranged beats melee.** Returns `CurrentStance` unchanged when nothing is equipped, so an empty bag never fights the Q-cycle |
+| `OnEquipmentChanged(Slot)` | `BlueprintImplementableEvent` — the single seam; BP wires it to `ApplyStance` |
+
+**Resolver contract: the OUT params are ALWAYS written with the value to use** — equipped item
+wins, stance table is the fallback — so the graph needs no Select/Branch of its own.
+**⚠ They return `void` on purpose.** An earlier revision returned `bool` ("came from an item?")
+and that was a trap — see the Python out-param note in memory `mcp-blueprint-editing`.
+
+### Graph changes (user placed nodes, I wired pins — the usual split)
+
+- **`ApplyStance`**: the two `Get Stance*Meshes/Rotations → GetArrayItem[CurrentStance]` chains
+  were replaced by **one resolver node per hand**, feeding `Set Static Mesh.NewMesh` and
+  `Set Relative Rotation.NewRotation`. 4 pins rewired (disconnect first — `connect_pins` is additive).
+  **Bow visibility (`CurrentStance == 7`) and the reticle (`StanceIsRanged[CurrentStance]`) were
+  left untouched** — both still work, because the stance bridge writes `CurrentStance` and they now
+  read the inherited C++ properties.
+- **EventGraph** (189 → 194 nodes): `On Equipment Changed` → `Apply Stance`;
+  `Get Melee Damage` → the `Apply Damage.BaseDamage` literal 20 in `MeleeHit`;
+  `Get Ranged Damage` → the `Damage` pin on **both** `SpawnActor BP_Arrow` nodes.
+  (I set **`Expose on Spawn` on `BP_Arrow.Damage`** so that pin exists. `Damage` is an **int**, default 30.)
+
+### PIE verification — driven live from Python, no debug key needed
+
+`Saved/CC_Probe/pie_equip_test.json`. Meshes read off the **real components on the running pawn**:
+
+| Step | Stance | Melee dmg | Right hand | Left hand | Bow |
+|---|---|---|---|---|---|
+| empty bag | 1 | 20 | OHS03 *(table)* | — | hidden |
+| THS01 → Melee | **2** | **25** | **THS01** | — | hidden |
+| + Bow → Ranged | **7** | 25 | THS01 | rot 170 | **visible** |
+| unequip bow | **2** | 25 | THS01 | — | hidden |
+| OHS + Shield | **3** | **15** | OHS03 | **Shield04 @ −180** | hidden |
+| all off | **0** | 20 | — | — | hidden |
+
+Also confirmed: ranged damage 30→18 with a bow; **unequip returns items to the bag**
+(gear count 0→1→2→4), which is the Unity bug the C++ API was reshaped to prevent.
+
+⚠ **Item balance, not a bug:** `UnarmedMeleeDamage` is 20 but `DA_Item_OHS03_Sword` is 15, so
+equipping the starter sword *lowers* damage. Spear=20, THS=25.
+
+### Still unverified / loose ends
+
+- **The two damage SINKS.** `GetMeleeDamage`/`GetRangedDamage` return correct values and the node
+  count is consistent with the wiring, but nobody has confirmed a real swing consumes
+  `GetMeleeDamage`, or that a spawned arrow carries 18. **Do a live combat check.**
+- **Priority arbitration** (step 3's last untested path) — still not run. Test prop
+  `ZZ_ArbTest_Priority50` was spawned into `Lvl_RPG_Test` **unsaved**; it is probably gone now.
+  Note `AWorldItem::GetInteractPriority_Implementation()` returns a hard-coded `Pickup`
+  (`WorldItem.cpp:176`), so **every interactable in the project is priority 10** and the priority
+  term cannot be exercised without inventing a second interactable kind.
+- **3 dead nodes remain in `ApplyStance`** (33 nodes; a full cleanup would be 30). One leftover
+  `Get Stance… → GET → Get CurrentStance` chain. They *look* connected because they're wired to
+  each other — what's dead is the GET's **Output** pin. Harmless (pruned at compile).
+- **Pre-existing, unrelated:** `Content/CharacterCreator/CC_Attack/Assassination_01.uasset` is
+  **corrupt** — "Invalid value for PACKAGE_FILE_TAG at start of file". Nothing depends on it.
+
+### Build notes
+
+`Build.bat Character_CreatorEditor Win64 Development` — ~8-14 s incremental, UHT clean under
+`-WarningsAsErrors`. Adding the new `Player/` folder needed **no** `Build.cs` change (the
+`PublicIncludePaths.Add(ModuleDirectory)` line carried it) and **no** project-file regeneration.
+⚠ **Whether an incremental build tolerates an OPEN editor is still UNPROVEN** — one build
+succeeded with the editor apparently up, but the user was closing it at the same moment, so the
+test was inconclusive. Keep closing the editor for builds until someone actually establishes this.
+A new `UCLASS` needs an editor restart to register regardless.
 
 ---
 

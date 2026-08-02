@@ -440,6 +440,36 @@ Ranged beats melee. **Switch on the item's `Category` field** — never on prefa
 
 **Risks:** highest of any step. Touching `ApplyStance` and `MeleeHit` means touching graphs that took several sessions to get right. **Commit before starting** (you commit manually — this is a flag, not an offer). Known MCP traps in play: `GetArrayItem` fed by `connect_pins` stays Wildcard and fails to compile; `inspect` misreports array types and reports `CurrentStance` as an enum when it's an int.
 
+#### Status — DONE, PIE-VERIFIED (2026-08-01, session 3)
+
+Full record in `.claude/handoff.md` § "Step 4". Summary:
+
+**The plan's "refactor ApplyStance, don't rewrite it" instruction was honoured, but the seam it
+was working around got removed instead.** Rather than a Blueprint `Select` between "the equipped
+item" and "the stance array", the user chose to **reparent `BP_RPG_PlayerCharacter` onto a new C++
+base, `ARPGPlayerCharacter`**, moving the six stance tables into C++ so the resolvers can read them
+directly. `ApplyStance` then needed only **one resolver node per hand** — a smaller edit than the
+two Selects this plan predicted.
+
+- **a) Mesh mount** — `ResolveRightHandMount` / `ResolveLeftHandMount` / `ResolveBowRigMount`.
+  Equipped wins, tables are the fallback, so the Q dev-cycle still works with an empty inventory
+  exactly as spec §6c requires. Verified across all 8 stances.
+- **b) Damage source** — the hard-coded `20` became `UnarmedMeleeDamage`; `GetMeleeDamage()` and
+  `GetRangedDamage()` are pulled at swing time, never cached. **The arrow-damage bonus was taken**
+  (`BP_Arrow.Damage` is now `Expose on Spawn`, fed by `GetRangedDamage`).
+- **c) Stance bridge** — `DeriveStanceFromEquipment()` implements the 8-row table in text,
+  switching on `Category`, ranged beating melee. `CurrentStance` stayed an **int**, as instructed.
+
+**Verified in a live PIE session driven from Python** (no debug key was needed — see the handoff):
+stance 1→2→7→2→3→0 as items went on and off, melee damage 20→25→15→20, ranged 30→18, the correct
+meshes mounting on the real components, and unequip returning items to the bag.
+
+**Not yet verified:** that a real swing/arrow actually *consumes* those damage values — the source
+functions are right and the wiring node-count is consistent, but no live combat check was run.
+
+**Consequence for later steps:** gameplay logic can now be written in C++ text on the player. The
+seam that made this step awkward is gone, and steps 5/7 inherit that.
+
 ---
 
 ### Step 5 — Loot tables + dropper · **M**

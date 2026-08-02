@@ -55,7 +55,7 @@ const UItemData* ARPGPlayerCharacter::FindMountedItem(EMountPoint MountPoint,
 	return nullptr;
 }
 
-bool ARPGPlayerCharacter::ResolveRightHandMount(UStaticMesh*& OutMesh, FRotator& OutRotation) const
+void ARPGPlayerCharacter::ResolveRightHandMount(UStaticMesh*& OutMesh, FRotator& OutRotation) const
 {
 	// Melee first, then Ranged - a wand is Ranged but mounts in the RIGHT hand, which is
 	// exactly why an item declares its mount point instead of it being inferred from the slot.
@@ -66,17 +66,16 @@ bool ARPGPlayerCharacter::ResolveRightHandMount(UStaticMesh*& OutMesh, FRotator&
 	{
 		OutMesh = Data->StaticMeshAsset.LoadSynchronous();
 		OutRotation = Data->GetAttachRotationForSlot(FoundSlot);
-		return true;
+		return;
 	}
 
 	OutMesh = StanceRightMeshes.IsValidIndex(CurrentStance)
 		? StanceRightMeshes[CurrentStance].Get() : nullptr;
 	OutRotation = StanceRightRotations.IsValidIndex(CurrentStance)
 		? StanceRightRotations[CurrentStance] : FRotator::ZeroRotator;
-	return false;
 }
 
-bool ARPGPlayerCharacter::ResolveLeftHandMount(UStaticMesh*& OutMesh, FRotator& OutRotation) const
+void ARPGPlayerCharacter::ResolveLeftHandMount(UStaticMesh*& OutMesh, FRotator& OutRotation) const
 {
 	static constexpr EEquipSlot Order[] = { EEquipSlot::OffHand };
 
@@ -85,17 +84,16 @@ bool ARPGPlayerCharacter::ResolveLeftHandMount(UStaticMesh*& OutMesh, FRotator& 
 	{
 		OutMesh = Data->StaticMeshAsset.LoadSynchronous();
 		OutRotation = Data->GetAttachRotationForSlot(FoundSlot);
-		return true;
+		return;
 	}
 
 	OutMesh = StanceLeftMeshes.IsValidIndex(CurrentStance)
 		? StanceLeftMeshes[CurrentStance].Get() : nullptr;
 	OutRotation = StanceLeftRotations.IsValidIndex(CurrentStance)
 		? StanceLeftRotations[CurrentStance] : FRotator::ZeroRotator;
-	return false;
 }
 
-bool ARPGPlayerCharacter::ResolveBowRigMount(USkeletalMesh*& OutMesh, FRotator& OutRotation) const
+void ARPGPlayerCharacter::ResolveBowRigMount(USkeletalMesh*& OutMesh, FRotator& OutRotation) const
 {
 	static constexpr EEquipSlot Order[] = { EEquipSlot::Ranged };
 
@@ -104,7 +102,7 @@ bool ARPGPlayerCharacter::ResolveBowRigMount(USkeletalMesh*& OutMesh, FRotator& 
 	{
 		OutMesh = Data->SkeletalMeshAsset.LoadSynchronous();
 		OutRotation = Data->GetAttachRotationForSlot(FoundSlot);
-		return true;
+		return;
 	}
 
 	// No table to fall back to - the Bow component already holds its authored mesh, and
@@ -112,7 +110,6 @@ bool ARPGPlayerCharacter::ResolveBowRigMount(USkeletalMesh*& OutMesh, FRotator& 
 	OutMesh = nullptr;
 	OutRotation = StanceLeftRotations.IsValidIndex(CurrentStance)
 		? StanceLeftRotations[CurrentStance] : FRotator::ZeroRotator;
-	return false;
 }
 
 int32 ARPGPlayerCharacter::GetMeleeDamage() const

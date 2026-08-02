@@ -1,35 +1,51 @@
 # Handoff — RPG Character project
 
-> ## ▶ START HERE (next session — written end of 2026-08-01, session 2)
+> ## ▶ START HERE (next session — written end of 2026-08-01, session 3)
 >
-> **STEPS 1, 2 AND 3 ARE DONE IN C++ and PIE-CONFIRMED.** Walking up to a pickup shows a prompt;
-> pressing E collects it and the actor destroys itself. The module builds green.
+> **STEPS 1, 2 AND 3 ARE DONE IN C++, PIE-CONFIRMED, AND THE INPUT PATH IS NOW VERIFIED ON DISK.**
+> The module builds green. **Next real work is step 4.**
 >
-> ### Finish this first — one unverified fix (5 minutes)
-> The last thing done was writing `Content/Python/cc_step3_trigger.py`. **It may not have been
-> run.** It fixes two real faults:
-> 1. `IA_RPG_Interact` had **no triggers**, so `Triggered` fired *every frame the key was held* —
->    one press logged ~50 pickups. It adds `UInputTriggerPressed`.
-> 2. `IMC_RPG_Default` had **two** E bindings — a stray `IA_Interact` (user-created, nothing
->    listens to it) alongside `IA_RPG_Interact`. It unmaps the stray.
+> ### ☠ Read this before trusting any "verified" claim in this file
+> Session 2 recorded step 3's E binding as PIE-confirmed. **It was gone at the start of session 3**
+> and the pickup path was silently dead. Root cause: `cc_step3_mapkey.py` called
+> `save_loaded_asset`, then "verified" by re-reading the **in-memory `UObject`**, which of course
+> still held the change. The save never reached disk (that session was throwing *"Unable to Check
+> Out From Revision Control!"* dialogs) and the return value was never checked.
+> **A read-back proves nothing unless it comes from disk.** Confirm asset writes three ways:
+> `EditorLoadingAndSavingUtils.get_dirty_content_packages()` empty · `.uasset` mtime/size changed ·
+> `git status` shows it modified. (`EditorAssetLibrary` has **no `reload_asset`** in 5.7, and
+> `unreal.Package` has no `is_dirty()` — the file/git checks are the only ground truth.)
 >
-> ```
-> py "E:/UE5 Projects/Character_Creator/Content/Python/cc_step3_trigger.py"
-> ```
-> Then PIE and confirm **one press = one log line**. Read
-> `Saved/CC_Probe/step3_trigger.json` for the result. If it already ran, it is a no-op.
+> ### Verified 2026-08-01 session 3 — all green
+> - **E → `IA_RPG_Interact`** mapped, stray `IA_Interact` gone, `InputTriggerPressed` present.
+>   Confirmed via disk mtime + git + zero dirty packages, then **PIE-confirmed one press = one
+>   pickup** by the user.
+> - **`UInventoryComponent` API: 32/32 checks pass** (`Saved/CC_Probe/inv_api_test.json`). This
+>   closes two of the three untested paths — **partial add** (ask 5 with 2 free → returns 2) and
+>   **bag full** (returns 0, `Unequip` refuses rather than destroying gear). Also covers materials
+>   uncapped/spend/key-removal-at-zero, equip moves the instance out of the bag, the displaced item
+>   returns to the bag, the same instance can't hold two slots, the OffHand exception accepts an
+>   OHS sword (stance 4), and a bow is rejected from Melee.
+>   Re-run it any time — it uses **transient objects, touches no level and dirties nothing**.
 >
-> ### Then: step 3's untested paths (worth an hour before moving on)
-> Only the happy path has been exercised. Untested, in order of how likely they are to be wrong:
-> - **Priority arbitration.** Only the *distance* tiebreak was observed. Place two overlapping
->   interactables at *different* priorities and confirm the higher one wins regardless of range.
-> - **Bag full** (capacity 20). Expected: prompt still shows, press logs
->   `[WorldItem] Bag full - '<name>' left on the ground.`, pickup stays. This is deliberate —
->   see the design note below.
-> - **Partial add.** A gear stack larger than the remaining space should take what fits and
->   leave the rest in the world with `Count` decremented.
-> - `AWorldItem::Palette` is unset on all 4 placed actors, so `OnItemVisualsApplied` gets white.
->   Only matters once something consumes the rarity tint.
+> ### The one path still unverified — priority arbitration
+> **`AWorldItem::GetInteractPriority_Implementation()` returns a hard-coded `Pickup`**
+> (`WorldItem.cpp:176`), so *every interactable that currently exists is priority 10*. The priority
+> term of the arbitration cannot be exercised by shipping content at all — it only starts to matter
+> when a second interactable kind lands (a chest at `Open`, an assassinate prompt).
+> A test prop is **already placed and waiting in `Lvl_RPG_Test`**: actor `ZZ_ArbTest_Priority50`
+> at `(360, 0, 75)`, a plain Actor carrying a bare `UInteractableComponent` at `DefaultPriority=Open(50)`,
+> radius 150, sitting 60 uu from the sword pickup (priority 10) — so both overlap the player at once
+> and priority must beat distance. Expected: the prompt reads
+> **"ARB TEST - priority 50 should win"**, and E fails honestly (a bare component has no
+> implementer, so `ResolveInteract` returns false by design).
+> **It is UNSAVED — do not save the level.** Delete the actor when done.
+> ⚠ If that prompt never appears, the instance component did not survive world duplication into
+> PIE; redo the prop as a small Blueprint class instead of an instance component.
+>
+> ### Cosmetic, still open
+> `AWorldItem::Palette` is unset on all 4 placed pickups, so `OnItemVisualsApplied` gets white.
+> Only matters once something consumes the rarity tint.
 >
 > ### Then: **step 4 — equip consumers.** The plan calls it the fiddliest step. Read
 > `docs/ItemsLoot_PortPlan.md` §5 step 4 before starting; it touches the already-working
@@ -231,8 +247,13 @@ skipped adding both components to the player BP, which presented as "the prompt 
 
 ### Loose ends
 
-- `IA_Interact` (stray asset, `/Game/RPG/Input/`) — created by hand, now unmapped and unreferenced.
-  Delete it or keep it; nothing depends on it.
+- ~~`IA_Interact` (stray asset, `/Game/RPG/Input/`) — created by hand~~ **CORRECTED 2026-08-01
+  session 3:** there is no `/Game/RPG/Input/IA_Interact`. The stray E binding pointed at
+  **`/Game/Variant_SideScroller/Input/Actions/IA_Interact`** — an engine *template* asset, still
+  used by `BP_SideScrollingCharacter` and `IMC_SideScroller`. It has been unmapped from
+  `IMC_RPG_Default`; **leave the asset itself alone**, the SideScroller variant content references it.
+  (This mattered: `cc_step3_trigger.py` guesses the stray's path and would have missed it — it
+  only worked because its fallback resolves the instance the mapping points at.)
 - `docs/ItemsLootUI_MechanicsSpec_ForUE5.md` is referenced by the port plan as its companion spec
   but **does not exist in `docs/`**. If it matters, it is probably still in the Unity repo at
   `E:\Unity\Unity_Procedural_Level_Creator\`.

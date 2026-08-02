@@ -1,8 +1,52 @@
 # Bugs / Issues To Fix
 
-Tracked issues for future resolution. Status as of 2026-05-31.
+Tracked issues for future resolution. Status as of 2026-08-02.
 
-> **⏸️ DEFERRED — CC version only (2026-06-09).** Every item currently in this file pertains to the original **`BP_CC_Character`** track (`BPC_AttackSystem`, `ABP_NoWeapon`), **not** the active RPG character (`BP_RPG_PlayerCharacter`). All are **set to IGNORE until we return to CC-version work.** Do not action these while building the RPG stance system.
+> **⏸️ DEFERRED — CC version only (2026-06-09).** The items in the *CC track* section below pertain to
+> the original **`BP_CC_Character`** track (`BPC_AttackSystem`, `ABP_NoWeapon`), **not** the active RPG
+> character (`BP_RPG_PlayerCharacter`). All are **set to IGNORE until we return to CC-version work.**
+>
+> ⚠ This no longer covers the whole file — see the RPG-track section immediately below.
+
+---
+
+# RPG track
+
+## Bug 4 — Enemy death animation doesn't hold; the corpse stands back up
+
+**Status:** 🕗 **DEFERRED BY USER (2026-08-02) — schedule AFTER the UE 5.8 conversion.**
+Not blocking; do not action during steps 5–6.
+
+**Reported:** user, 2026-08-02, during PIE verification of the `BPC_PlayerStats` fix.
+**Regression window:** *"this was working before we started the conversion and the Unity port."*
+So it broke somewhere between the pre-port state and now — git history across the port
+(`b772959 Port from Unity` → `a7f4b05` → `db565d7` → `aaf4f38` → `d5d4323 C++ rewiring`)
+is the place to bisect.
+
+**Symptom:** on death the enemy plays its death montage, then **returns to standing/idle** instead of
+staying down. It still destroys correctly ~2 s later, so the exec chain itself is intact.
+
+**Not investigated yet.** Recorded leads only — verify before acting on any of them:
+
+1. **The montage blends out and the AnimBP falls back to locomotion.** The usual cause. Fixes are
+   either a Death state in the AnimBP with no exit transition, holding the final pose
+   (blend-out time 0 / `Montage_Pause` on completion), or enabling ragdoll.
+2. **There is an unreferenced `Ragdoll` custom event in `BP_RPG_Enemy`** —
+   node `EDE9FBE54101529C1BCF928DD01712C7`, which runs `Delay 1.2 → Play Montage → Play Sound at
+   Location → Delay 2.0 → Destroy Actor`. **Nothing in `BP_RPG_Enemy`'s own EventGraph calls it**, and
+   its `OutputDelegate` pin is unlinked. If a ragdoll path was the original death behaviour and its
+   caller (an anim notify, or a call from the CC-era graph) was lost in the port, that would produce
+   exactly this symptom. **Check this first — it's the cheapest lead and it fits the regression window.**
+3. Note the death chain that *does* run is the separate one off `Event AnyDamage`:
+   `Branch (IsPlayerDead?) → Play Montage (9EEA6D2D…) → Play Sound → Delay 2.0 → Destroy Actor`.
+   Two parallel death paths existing at once is itself suspicious.
+
+**Do not confuse with:** the `BPC_PlayerStats` "Accessed None / As Dummy" spam — that was fixed and
+PIE-verified 2026-08-02 and is unrelated (it was dead widget code, no gameplay effect).
+
+---
+
+# CC track
 
 ---
 

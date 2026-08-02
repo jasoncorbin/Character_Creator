@@ -1,9 +1,14 @@
 # Items / Loot / Inventory UI — UE5 Port Plan
 
 **Status:** approved 2026-08-01 — all recommendations taken, to be revisited during testing.
-**Steps 1, 2 and 3 are DONE, in C++, and step 3 is PIE-confirmed.** Next up is **step 4**
-(equip consumers) — the step this plan calls the fiddliest, because it is where the new system
-meets the already-working player.
+**Steps 1–5 are DONE, in C++, and all are PIE-verified (step 5 completed 2026-08-02).**
+
+**⛔ NEXT IS NOT STEP 6.** The locked decision is that the **UE 5.8 upgrade happens after step 5,
+before step 6** — step 6 is the XL Inventory/Character screen and is far better started on the
+engine we intend to finish on than migrated mid-build. Two prerequisites before the upgrade, both
+on a COPY first: `Plugins/MCPUnreal` must be proven to rebuild against 5.8, and the
+`Character_Creator` C++ module must build clean on 5.8. 5.8.1 is already installed at
+`E:\UE4 Projects\_UE4\UE_5.8`; this project is on 5.7.4.
 
 **Decisions locked:** instance model front-loaded to step 2 · hero preview = separate always-idle instance · palette = **Candy Warm** · author ~8 items by hand now · take the arrow-damage-from-item win in step 4 · modular-character direction stays out of scope.
 **Source spec:** `docs/ItemsLootUI_MechanicsSpec_ForUE5.md` (behaviour + values — the *what*).
@@ -497,6 +502,38 @@ Real art later is a one-line swap: spawn the item's mesh instead of the primitiv
 **Verify:** kill the enemy repeatedly, confirm drop rates look right over ~20 kills, confirm arrow-kills and melee-kills both drop cleanly, confirm no double-drop.
 
 **Risk:** medium — the arrow-kill-inside-collision path is the known landmine.
+
+#### Status — DONE IN C++, PIE-VERIFIED (2026-08-02, session 4)
+
+Built as C++ rather than the BP assets named above, because user-defined structs cannot be
+authored or populated from Python at all — `S_RPG_LootEntry` as a BP struct would have been
+hand-built forever. Files: `Source/Character_Creator/Loot/{LootTypes.h, LootTable.h/.cpp,
+LootDropperComponent.h/.cpp}`. Module rebuilt clean, first try.
+
+- **`FLootEntry` / `FLootDrop`** — entry is (Item, DropChance, MinCount, MaxCount).
+- **`ULootTable::RollLoot()`** — independent per-entry roll, `FMath::RandRange` inclusive both ends,
+  guards against an authored `Max < Min`. **Verified empirically over 2000 rolls**, not just
+  compiled: Mat1 0.785 / Mat2 0.290 / Mat3 0.050 / THS01 0.257 against spec 0.80 / 0.30 / 0.05 / 0.25.
+- **`ULootDropperComponent::DropLoot()`** — single-fire guard set **before** the null-table check, so
+  a misconfigured dropper still latches. **Spawning is deferred to the next tick** via
+  `SetTimerForNextTick`, which is the fix for the arrow-kill landmine: that path runs the whole
+  death chain inside the projectile's overlap callback, and this gets off that stack. Uses the
+  existing `AWorldItem::SpawnWorldItem` (already SpawnActorDeferred → configure → FinishSpawning).
+- **`DA_Loot_Grunt`** at `/Game/RPG/Data/`.
+- **Death hook:** a direct `Drop Loot` call on the TRUE branch of `IsPlayerDead?`, before the 2s
+  delay — chosen over the planned `OnDeath` dispatcher purely because it is one node instead of
+  three and MCP can author neither.
+
+**⚠ Placeholder meshes are load-bearing, not cosmetic.** `DA_Item_Mat1/2/3` have **no
+`StaticMeshAsset`** — materials render only via `AWorldItem::PlaceholderMesh`. Spawning a bare
+`AWorldItem` drops them **invisible but collectable**. The dropper sets cube-for-gear /
+sphere-for-material explicitly and logs a loud warning if the material mesh is ever unset.
+
+**Also worth knowing:** no Blueprint child of `AWorldItem` exists — the dropper spawns the raw C++
+class. The moment per-item VFX via `OnItemVisualsApplied` (a `BlueprintImplementableEvent`) is
+wanted, a BP child is needed and `world_item_class` should be repointed at it.
+
+Write-up: `.claude/task_Step5_LootDropper.md`.
 
 ---
 

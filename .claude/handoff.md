@@ -1,6 +1,42 @@
 # Handoff — RPG Character project
 
-> ## ▶ START HERE (session 4 — written end of 2026-08-01, session 3)
+> ## ▶ START HERE (session 5 — written end of 2026-08-02, session 4)
+>
+> **STEPS 1–5 ARE DONE AND PIE-VERIFIED.** Session 4 closed out the `BPC_PlayerStats` bug and all
+> of step 5.
+>
+> ### ⛔ NEXT IS THE UE 5.8 UPGRADE — NOT STEP 6
+> Locked decision, reaffirmed by the user 2026-08-02: the upgrade happens **after step 5, before
+> step 6**. Step 6 is the XL Inventory/Character screen; start it on the engine we intend to finish
+> on rather than migrating mid-build.
+>
+> - Project is on **5.7.4**; **5.8.1 is already installed** at `E:\UE4 Projects\_UE4\UE_5.8`.
+> - **Two prerequisites, both on a COPY first:** (1) `Plugins/MCPUnreal` must be proven to rebuild
+>   against 5.8 — if it doesn't, we lose the working MCP toolchain mid-project; (2) the
+>   `Character_Creator` C++ module must build clean on 5.8. Editor closed for both.
+> - Assets resaved in 5.8 **cannot go back** to 5.7. Branch + backup first.
+> - Motivating detail: Epic's official in-editor MCP (`ModelContextProtocol`) is **5.8-only** —
+>   verified by `find`ing the engine tree; zero hits in 5.7, present with prebuilt DLLs in 5.8.
+>   That is what `127.0.0.1:8000/mcp` in `.mcp.json` points at, and why it has never connected.
+>
+> ### Deferred, do NOT action before the upgrade
+> **Enemy death anim doesn't hold — the corpse stands back up.** Worked before the Unity port.
+> User's call to defer. Best lead: the **unreferenced `Ragdoll` custom event** in `BP_RPG_Enemy`
+> (`EDE9FBE5…`) that nothing calls. Full entry: `.claude/bugs_to_fix.md` § RPG track Bug 4.
+>
+> ### Housekeeping left open
+> - Hundreds of untracked `.vscode/compileCommands_*/*.rsp` build artefacts from the project-file
+>   regen — want `.gitignore`-ing before the next commit.
+> - `Character_Creator.uproject` gained `JsonBlueprintUtilities` + `BlueprintStats`;
+>   `MCPUnreal.uplugin` was reformatted by the editor. Neither came from our work.
+> - **MCP `search_assets` is broken in this plugin build** — returns `{"total":0}` for every query,
+>   including `class_filter=Blueprint` over `/Game`. Use `blueprint_query list` instead.
+> - `Content/CharacterCreator/BPC_PlayerStats.uasset` is an **ObjectRedirector**, not a duplicate
+>   asset. Harmless; clears with Fix Up Redirectors.
+>
+> ---
+>
+> ## Previous START HERE (session 4 — written end of 2026-08-01, session 3)
 >
 > **STEPS 1–4 ARE DONE.** Step 4 — the step the plan calls the fiddliest and highest-risk — is
 > complete and **PIE-verified end to end**. `BP_RPG_PlayerCharacter` now inherits from a C++ base.
@@ -24,9 +60,17 @@
 > times (`As Dummy` → `Health Bar UI` → `HealthBar`) = 3 errors × 2 nodes = the 6 per hit.
 > NB `BP_RPG_PlayerCharacter` does **not** have this component at all — the player is not involved.
 >
-> **This is not just log spam: `BP_RPG_Enemy`'s health bar has never updated.** It owns a
-> `Health Bar Wigget` WidgetComponent and a `Health Bar UI` variable, but this code can only
-> talk to a `Dummy`. ⚠ Ask the user to confirm they've never seen an RPG enemy bar move.
+> **✅ CORRECTED 2026-08-02 — the claim that followed here ("`BP_RPG_Enemy`'s health bar has never
+> updated") was WRONG. Confirmed by the user and by reading the graph: the bar works fine.**
+> `BP_RPG_Enemy` drives its own bar from its own `Event AnyDamage` graph — at BeginPlay it does
+> `Get Health Bar Wigget → Get Widget → Cast To WB_Dummy_Health → Set Health Bar UI`, then after
+> calling `Decrease Health` it calls its own `Set Percent` on that widget, and branches on the
+> returned `IsPlayerDead?` for the death montage. It uses `BPC_PlayerStats` purely as a *data* store.
+> So the widget code **inside** `Decrease Health` was redundant dead weight for this owner — this was
+> log spam over dead code, **not a broken feature**. Root cause of the spam: a `Select` evaluates all
+> option chains eagerly, and `BP_RPG_Enemy` has `isPlayer=false` (CDO default, never assigned — it is
+> a *duplicate* of `Dummy`, not a subclass, so `Cast To Dummy` fails) with `As Dummy` null.
+> **FIXED 2026-08-02** — see `.claude/task_PlayerStats_HealthBar_Fix.md`.
 >
 > **Second, latent defect:** a Blueprint `Select` evaluates **ALL** option chains eagerly, so the
 > Dummy chain is dereferenced even when `isPlayer` is true. **A `Select` can never be a null guard.**

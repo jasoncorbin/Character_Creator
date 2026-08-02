@@ -22,13 +22,17 @@ public class Character_Creator : ModuleRules
 			"Engine",
 			"InputCore",
 			"EnhancedInput",
+			// Public because UI/RPGUITheme.h exposes FSlateFontInfo in its public API, and
+			// UI/RPGUISettings.h derives from UDeveloperSettings. A module including ours
+			// needs both - keeping them private breaks any downstream include.
+			"SlateCore",
+			"DeveloperSettings",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"UMG",
 			"Slate",
-			"SlateCore",
 		});
 	}
 }

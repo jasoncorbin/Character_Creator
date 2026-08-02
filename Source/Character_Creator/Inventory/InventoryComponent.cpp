@@ -261,3 +261,73 @@ int32 UInventoryComponent::GetEquippedDamage(EEquipSlot Slot) const
 	const UItemInstance* Instance = GetEquipped(Slot);
 	return Instance ? Instance->GetDamage() : 0;
 }
+
+// --- UI views (step 6) -------------------------------------------------------
+
+bool UInventoryComponent::ItemMatchesTab(const UItemData* Item, EItemTab Tab)
+{
+	if (Item == nullptr)
+	{
+		return false;
+	}
+
+	switch (Tab)
+	{
+	case EItemTab::All:
+		return true;
+
+	case EItemTab::Materials:
+		return Item->Kind == EItemKind::Material;
+
+	case EItemTab::Armor:
+		// Slot, not weapon category: a shield is worn in the off-hand and reads as a weapon.
+		return Item->Kind == EItemKind::Gear && Item->Slot == EEquipSlot::Armor;
+
+	case EItemTab::Weapons:
+		return Item->Kind == EItemKind::Gear && Item->Slot != EEquipSlot::Armor;
+
+	case EItemTab::Potions:
+		// No potion kind exists yet - deliberately empty rather than faked. See EItemTab.
+		return false;
+
+	default:
+		return false;
+	}
+}
+
+TArray<FInventoryRow> UInventoryComponent::GetRowsForTab(EItemTab Tab) const
+{
+	TArray<FInventoryRow> Rows;
+
+	// Gear first, in bag order, so a picked-up weapon appears where the player expects it.
+	for (const TObjectPtr<UItemInstance>& Instance : GearBag)
+	{
+		if (Instance == nullptr)
+		{
+			continue;
+		}
+		UItemData* ItemTemplate = Instance->Template;
+		if (ItemMatchesTab(ItemTemplate, Tab))
+		{
+			Rows.Emplace(ItemTemplate, Instance, 1);
+		}
+	}
+
+	// Then material stacks. TMap iteration order is not stable, so sort by Id for a grid
+	// that does not reshuffle itself between opens.
+	TArray<FInventoryRow> MaterialRows;
+	for (const TPair<TObjectPtr<UItemData>, int32>& Pair : Materials)
+	{
+		if (Pair.Value > 0 && ItemMatchesTab(Pair.Key, Tab))
+		{
+			MaterialRows.Emplace(Pair.Key, nullptr, Pair.Value);
+		}
+	}
+	MaterialRows.Sort([](const FInventoryRow& A, const FInventoryRow& B)
+	{
+		return A.Item->Id.LexicalLess(B.Item->Id);
+	});
+
+	Rows.Append(MaterialRows);
+	return Rows;
+}

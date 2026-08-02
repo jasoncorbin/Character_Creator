@@ -10,7 +10,7 @@ on a COPY first: `Plugins/MCPUnreal` must be proven to rebuild against 5.8, and 
 `Character_Creator` C++ module must build clean on 5.8. 5.8.1 is already installed at
 `E:\UE4 Projects\_UE4\UE_5.8`; this project is on 5.7.4.
 
-**Decisions locked:** instance model front-loaded to step 2 · hero preview = separate always-idle instance · palette = **Candy Warm** · author ~8 items by hand now · take the arrow-damage-from-item win in step 4 · modular-character direction stays out of scope.
+**Decisions locked:** instance model front-loaded to step 2 · ~~hero preview = separate always-idle instance~~ **hero preview = LIVE PLAYER MODEL (user, 2026-08-02 — overrides §7's recommendation)** · palette = **Candy Warm** · author ~8 items by hand now · take the arrow-damage-from-item win in step 4 · modular-character direction stays out of scope · **fonts imported before step-6 layout work (user, 2026-08-02 — DONE)**.
 **Source spec:** `docs/ItemsLootUI_MechanicsSpec_ForUE5.md` (behaviour + values — the *what*).
 **This doc:** the *how* for this project specifically — asset names, integration points, order, risks.
 **Grounded against:** live `BP_RPG_PlayerCharacter` / `BP_RPG_Enemy` graphs, `RPG_BuildProgress.md`, and the Unity source at `E:\Unity\Unity_Procedural_Level_Creator\`.
@@ -34,7 +34,7 @@ Facts verified in this project that change the plan versus a naive reading of th
 | **`BP_RPG_Enemy` has NO death event or dispatcher.** Death is inline: `AnyDamage → Decrease Health → Branch(IsPlayerDead) → PlayMontage → Delay 2.0 → DestroyActor`. | We must add an `OnDeath` dispatcher. There is a **2-second window** before the corpse is destroyed — ample. |
 | **`BPC_PlayerStats` (the health component) is CC-archive** and has a known `Accessed None` bug the user said not to touch. | Put the dispatcher on `BP_RPG_Enemy`, **not** on the shared stats component. |
 | **No `IA_Interact` / `IA_Inventory` exist** in `Content/RPG/Input/`. | Two new Input Actions + `IMC_RPG_Default` edits. Manual (MCP can't set the InputAction pin). |
-| **UMG `WidgetTree` is not Python-exposed in 5.7.** | Every widget layout is hand-built in the designer. This dominates the cost of steps 6–7. |
+| ~~**UMG `WidgetTree` is not Python-exposed in 5.7.**~~ **STALE — CORRECTED 2026-08-02.** True of `unreal.WidgetTree` in Python, but the project is on **5.8.1** and Epic's in-editor MCP ships **`UMGToolSet` (23 tools)** — `CreateWidgetBlueprint`, `AddWidget`, `MoveWidget`, `WrapWidgets`, `SetNamedSlotContent`, `BindToEventProperty`, `CompileWidgetBlueprint`… **Enumerated and smoke-tested live**, not assumed. | Widget layout is **largely scriptable**. Steps 6–7 must be **re-scoped before estimating** — the old sizing assumed 100% designer hand-authoring. See handoff § "MCP: run BOTH servers" + memory `epic-mcp-gateway.md`. |
 | **Fredoka and Nunito are not imported.** Only `Nanum_Myeongjo` exists (CC archive). | Font acquisition + import is a real task, blocking accurate UI. |
 | **The 4 design reference PNGs live only in the Unity repo** and render the **Classic Bright** palette, while **Candy Warm is the chosen one**. | Copy them in as reference, but expect rarity colours to disagree with the target. |
 
@@ -187,7 +187,9 @@ New folders under `Content/RPG/`: `Items/`, `Items/Assets/`, `Loot/`, `Interacti
 ## 4. Prep task (do first, ~15 min, unblocks steps 6–7)
 
 1. Copy the 4 reference PNGs from `E:\Unity\Unity_Procedural_Level_Creator\Documentation\Asset and inventory UI design\design_handoff_candy_cloud\assets\` into `docs/design/` in this repo (`inventory_candy_cloud.png`, `forge_enough_candy_cloud.png`, `forge_short_candy_cloud.png`, `chibi_hero_reference.png`), plus that folder's `README.md`.
-2. Acquire **Fredoka** and **Nunito** (both SIL Open Font License, free) and import to `Content/RPG/UI/Fonts/`. Without these the UI cannot match the design and we'd be re-deciding type at build time.
+2. ~~Acquire **Fredoka** and **Nunito** (both SIL Open Font License, free) and import to `Content/RPG/UI/Fonts/`.~~ ✅ **DONE 2026-08-02.** Live as **6 `FontFace` assets** in `/Game/RPG/UI/Fonts/` (`{Fredoka,Nunito}_{Regular,SemiBold,Bold}`); TTF sources + OFL licences + README in `Art_Source/Fonts/`. Two traps captured in memory `rpg-ui-fonts.md`:
+   - ☠ **Assign the `FontFace` DIRECTLY** to `font.fontObject` — verified round-trip. **Do not try to build `Font` (UFont) typeface assets**: `unreal.Typeface`/`TypefaceEntry`/`FontData` aren't exposed to Python, and Epic's `ObjectTools` doesn't expose `compositeFont.defaultTypeface` either. It is unbuildable from script on both servers.
+   - ☠ **Never import the variable TTFs.** Upstream ships variable-only and UE uses just the default instance — **wght 300 (Fredoka) / 200 (Nunito)** — so you'd get Light/ExtraLight labelled as Regular. Statics were cut at 400/600/700 with `fontTools.varLib.instancer`.
 
 ---
 
@@ -533,12 +535,69 @@ sphere-for-material explicitly and logs a loud warning if the material mesh is e
 class. The moment per-item VFX via `OnItemVisualsApplied` (a `BlueprintImplementableEvent`) is
 wanted, a BP child is needed and `world_item_class` should be repointed at it.
 
-Write-up: `.claude/task_Step5_LootDropper.md`.
+Write-up: the `.claude/task_Step5_LootDropper.md` working doc was deleted after step 5 shipped
+(its header still read "one node left for you"). Recover from git history if needed.
 
 ---
 
-### Step 6 — Inventory / Character screen · **XL** — the biggest step
+### Step 6 — Inventory / Character screen · ~~**XL**~~ **L–XL, re-scoped 2026-08-02**
 *Spec §7. Full layout tree with exact px/hex is in the Unity handoff README, now copied to `docs/design/`.*
+
+> ## ▶ RE-SCOPE (2026-08-02) — read this before the original text below
+>
+> The original XL rested on "all hand-authored UMG". That premise is dead: the **full authoring
+> loop is proven** (`CreateWidgetBlueprint` → `AddWidget` → `list_properties` → `set_properties` →
+> `BindToEventProperty` → `CompileWidgetBlueprint` → `save_assets` → verified on disk), and
+> `list_properties` is **per-class cacheable**, so structure and styling are scripted work now.
+> Fonts are imported (§4). What did *not* get cheaper: visual judgement, the hero preview, and
+> graph logic.
+>
+> **The governing decision: push logic into C++, keep widget graphs thin.** This project already
+> ruled that "gameplay data + logic go in C++; Blueprint stays for actors, UI and glue". Doing that
+> here also sidesteps the one unproven tool (`write_graph_dsl`) — if the widgets only ever call
+> `UFUNCTION`s and bind events, the graphs stay small enough to build with `BindToEventProperty`
+> plus a handful of nodes.
+>
+> ### ✅ DE-RISKED 2026-08-02 — `write_graph_dsl` WORKS, so **6E is M**
+> Proven on a throwaway widget: authored a branch + bool get/set + two `SetText` calls with
+> different literals, **compiled clean, saved to disk**, then deleted (git confirmed clean).
+> **Graph authoring is scripted — the "user places nodes, Claude wires pins" pattern from sessions
+> 1–4 is retired** for anything the DSL can express. Writes are **additive per event**, not
+> destructive. Full gotcha list in memory `blueprint-graph-dsl.md`; the load-bearing ones:
+> - ☠ **Bool member vars drop the leading `b`** — `bSelected` → `Variables|Default|GetSelected`.
+> - ☠ **Widget variables live under `Variables|<BlueprintName>|Get<WidgetName>`**, not `Default`,
+>   and are **not** auto-available as bare DSL identifiers — bind the getter first.
+> - ☠ **`read_graph_dsl` output is NOT valid `write_graph_dsl` input** (member vars read back as
+>   `(|GetbSelected)`, which the writer rejects). No naive read→modify→write; re-derive ids with
+>   `find_node_types` (which needs `graph` **and** `context_pins: []`).
+>
+> ### Build order
+>
+> | # | Sub-step | Size | Scripted? |
+> |---|---|---|---|
+> | **6A** | ✅ **DONE 2026-08-02.** `URPGUIStyle` (BP function library) is the single API for colour/type/metrics; new **`DA_RPGUITheme`** holds chrome + a 13-role type scale + layout metrics beside `DA_RarityPalette`'s rarity colour, both resolved through **`URPGUISettings`** (Project Settings → Game → RPG UI). Verified end to end: `IsStyleConfigured()` true, Legendary `#FF9A3D`, ink `#4B57C9`, slot 58 / 5 cols / gap 14, fonts per role. Missing assets render **magenta** by design. Also fixes the old per-actor `Palette` pointer that left `AWorldItem::Palette` unset. Details in memory `rpg-ui-style-foundation.md`. | **S** | ✅ done |
+> | **6B** | **`WBP_RPG_ItemCell`.** 58×58, 2px rarity border, rarity soft bg, icon, `×N` stack badge (materials, N>1 only), selected ring. API: `SetItem(instance)`, `SetSelected(bool)`, `OnCellClicked` dispatcher. Icons fall back to name initials — none authored. | **S–M** | ✅ structure + style; selection ring needs an eyeball |
+> | **6C** | **`WBP_RPG_EquipSlot`.** Slot + overlapping label chip; locked variant (dimmed icon 30%, 🔒 badge, non-interactive, **never reads inventory state**). 8 shown, 4 wired. | **S** | ✅ fully |
+> | **6D** | **`WBP_RPG_Inventory` shell.** 980×600 canvas; title bar (gold pill / `Knight · Lv 8` / ✕), two-panel body (flex 1.25 : 1, gap 14), stats row, Skins/Stats buttons, tabs, 5-col grid container, detail strip, footer. Pure structure + slot layout. | **M** | ✅ fully — this is the bulk of the old "XL" and it is now scripted |
+> | **6E** | **Behaviour.** `IA_RPG_Inventory` (I) · `SetGamePaused` + **widgets must tick while paused** · `SetInputModeGameAndUI` + cursor (override `DefaultInput.ini`'s `CapturePermanently_IncludingInitialMouseDown` / `LockOnCapture`) · live refresh on open + tab change (**no snapshot**) · tab filtering · selection → detail strip · stats row from equipped melee + player stats · **equip-from-UI** (the thing Unity never built). | **M** ✅ | ✅ `write_graph_dsl` proven; C++ helpers keep the graphs small |
+> | **6F** | **Hero preview — LIVE PLAYER MODEL** (decided, see below). `SceneCaptureComponent2D` → render target → `Image` brush, + drag-to-rotate. Framing/lighting is iteration, not scripting. | **M** | ❌ mostly manual |
+> | **6G** | **Polish.** Spacing, shadows, real glyphs (`✓ ✕ × · — ▲ ✦ ➜`), Candy-Warm check against the palette asset. | **M** | ❌ judgement |
+>
+> **Net: L, down from XL.** 6A–6E are all scripted (S+SM+S+M+M); the remaining manual work is
+> **6F hero preview** and **6G polish** — both visual-judgement passes, not authoring. The step is
+> no longer dominated by hand-building UMG.
+>
+> ### Two C++ additions that make 6E cheap
+> 1. `UInventoryComponent::GetFilteredItems(ECategory)` — tab filtering in C++, so the widget calls
+>    one function instead of building a filter graph.
+> 2. A stats accessor returning Damage/Armor/HP/Stamina as one struct — `GetMeleeDamage()` already
+>    exists on `ARPGPlayerCharacter`; Armor/HP/Stamina still come from `BPC_PlayerStats`, which is
+>    **CC-archive** and ⚠ **only touched when the user asks** (see handoff).
+>
+> ### Carried-over constraints (unchanged, still binding)
+> - **All colours from `DA_RarityPalette`** — the two-palette swap must stay a one-field change.
+> - Reference PNGs render **Classic Bright**; the build targets **Candy Warm**. Trust the asset.
+> - A full bag must **not** hide interaction — established in step 3, same principle applies to UI.
 
 `WBP_RPG_Inventory` at reference canvas **980 × 600**, plus `WBP_RPG_ItemCell` and `WBP_RPG_EquipSlot` sub-widgets.
 
@@ -557,11 +616,17 @@ Write-up: `.claude/task_Step5_LootDropper.md`.
 
 **Close the loop: implement equip-from-UI.** Clicking a bag cell or an equipment slot equips/unequips. Unity never built this (§13) — UE5 leads here, and it's what makes the whole feature playable rather than a viewer.
 
-**Hero preview stays a placeholder** — an open decision in both engines (separate always-idle preview instance vs. the live player model). See §7 below.
+~~**Hero preview stays a placeholder**~~ — **DECIDED 2026-08-02: the LIVE PLAYER MODEL.** The user chose this over §7's "separate always-idle instance" recommendation. Consequences to build against, since they're the reasons §7 argued the other way:
+- The preview shows the pawn in whatever state gameplay left it — mid-animation, damaged, badly lit. **The game is paused while the screen is open**, so expect a *frozen* pose, not an idle loop. If that reads badly, the fix is a scene-capture framing/lighting pass, **not** re-opening the decision.
+- Equip-from-UI updates are free and exactly right — it's the same pawn `ApplyStance` already drives, so no mirroring of equipment state onto a second actor.
+- Implementation: `SceneCaptureComponent2D` → render target → `Image` brush. This project has already proven that path (memory `inspecting-blueprints`: remote rendering works via SceneCapture2D→render-target→PNG, and **SceneCapture is not decoupled from the camera the way viewport capture is**).
 
 **Verify:** PIE — open with I, confirm pause and cursor, pick items up and watch the grid update live, equip from the UI and see the weapon change in the world behind the screen.
 
-**Risks:** `WidgetTree` isn't Python-exposed, so this is entirely hand-authoring in the designer — by far the largest manual chunk in the plan. The reference PNGs show Classic Bright while the build targets Candy Warm; trust the palette asset, not the screenshots.
+**Risks:** ~~`WidgetTree` isn't Python-exposed, so this is entirely hand-authoring in the designer — by far the largest manual chunk in the plan.~~
+⚠ **THIS RISK NOTE IS STALE — DO NOT SIZE THIS STEP FROM IT (corrected 2026-08-02).** The project is on **UE 5.8.1** and Epic's in-editor MCP server exposes **`UMGToolSet`, 23 tools** — the tree *is* scriptable (`CreateWidgetBlueprint`, `AddWidget`, `MoveWidget`, `WrapWidgets`, `SetNamedSlotContent`, `BindToEventProperty`, `ToggleWidgetAsVariable`, `CompileWidgetBlueprint`, `GetWidgets`, `GetNamedSlots`…). Verified by live enumeration + a `ListWidgetBlueprints("/Game/RPG")` call, not from docs. **Re-scope step 6 before estimating it.**
+Two hard constraints when you do: (1) ☠ start the **UE editor before Claude Code** or the tools won't attach at all; (2) `ObjectTools.list_properties(widget)` is **mandatory** before `set_properties` — property names vary per widget class and cannot be guessed, and skipping it fails *silently*. Details: handoff § "MCP: run BOTH servers", memory `epic-mcp-gateway.md`.
+Still true: the reference PNGs show Classic Bright while the build targets Candy Warm; trust the palette asset, not the screenshots. Font import (Fredoka/Nunito) is also still a real blocking task.
 
 ---
 
@@ -597,7 +662,7 @@ Rendering rules are fully specified (state pill, current/next cards, 4-pill rari
 ## 7. Open decisions for you
 
 1. **§2.3 — front-load the instance model to step 2?** Recommended. Veto if you'd rather follow spec §12 literally.
-2. **Hero preview** (spec §7, open in both engines): a *separate preview instance* — always idle, well-lit, independent of gameplay state — versus the *live player model*. Recommendation: separate instance, for exactly those reasons. Decide once, build in whichever engine, mirror to the other.
+2. ~~**Hero preview**~~ ✅ **CLOSED 2026-08-02 — the LIVE PLAYER MODEL.** (The recommendation here was *separate instance*; the user chose live. Recorded at step 6 with the consequences to build against.) ~~a *separate preview instance* — always idle, well-lit, independent of gameplay state — versus the *live player model*. Recommendation: separate instance, for exactly those reasons.~~
 3. **Palette:** confirm **Candy Warm** is still the chosen set. Both are authored either way; it's a one-field flip.
 4. **Item catalogue scope:** author ~8 items by hand (step 1) and expand later, or script all 57 weapon archetypes up front from the pack meshes? Recommendation: 8 now — every code path is covered, and bulk generation is trivial once the class is proven.
 5. **Modular character direction:** the memory note flags `ModularCharacter_BP`'s pre-rotated per-type components (`Weapon_R 0,0,-180`, `Weapon_L -90,0,-180`, `Shield 0,0,-90`, `Bow 90,90,0`) as the chosen path for future multi-character/armor work. That model would obviate per-item attach rotations entirely. **Not in this plan's scope** — but if you want to move to it, step 4 is the natural moment, and it would change §2.4.
@@ -615,7 +680,7 @@ Rendering rules are fully specified (state pill, current/next cards, 4-pill rari
 | 3 | Interaction system + world pickup | M | manual input wiring |
 | 4 | Equip → mesh / damage / stance | **L** | **touches proven graphs** |
 | 5 | Loot tables + dropper | M | arrow-kill inside collision callback |
-| 6 | Inventory screen (+ equip-from-UI) | **XL** | all hand-authored UMG |
+| 6 | Inventory screen (+ equip-from-UI) | ~~**XL**~~ **L** | 6A–6E scripted (UMG tree + graph DSL both proven); remaining manual = hero preview + polish |
 | 7 | Weapon instances + Forge | L | none if §2.3 is taken |
 
-Steps 1–3 are additive and touch nothing existing. Step 4 is the integration point and the one to be careful with. Steps 6–7 are the bulk of the calendar time, almost entirely UMG hand-authoring.
+Steps 1–3 are additive and touch nothing existing. Step 4 is the integration point and the one to be careful with. ~~Steps 6–7 are the bulk of the calendar time, almost entirely UMG hand-authoring.~~ **Corrected 2026-08-02:** steps 6–7 are still the bulk of the calendar time, but the "almost entirely hand-authoring" premise is dead — Epic's `UMGToolSet` (23 tools) makes most of the tree scriptable. **Both sizes need re-deriving before they mean anything.**

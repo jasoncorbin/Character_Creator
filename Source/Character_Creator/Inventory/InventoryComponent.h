@@ -25,6 +25,52 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemRemoved, UItemData*, Item);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnEquipChanged, EEquipSlot, Slot,
 	UItemInstance*, NewItem, UItemInstance*, OldItem);
 
+/**
+ * The bag grid's category tabs (design handoff, Items Bag panel).
+ *
+ * Potions is authored but has no backing data - there is no potion EItemKind - so it always
+ * yields an empty list. The design shows it dimmed/disabled for exactly this reason; keeping
+ * the entry means the tab strip is data-driven rather than special-cased in the widget.
+ */
+UENUM(BlueprintType)
+enum class EItemTab : uint8
+{
+	All       UMETA(DisplayName = "All"),
+	Weapons   UMETA(DisplayName = "Weapons"),
+	Armor     UMETA(DisplayName = "Armor"),
+	Materials UMETA(DisplayName = "Materials"),
+	Potions   UMETA(DisplayName = "Potions"),
+
+	Count     UMETA(Hidden)
+};
+
+/**
+ * One cell of the bag grid. Covers both halves of the inventory:
+ *   gear     -> Instance set, Count 1
+ *   material -> Instance null, Count = stack size
+ * The x N badge shows only when Count > 1, so gear never gets one.
+ */
+USTRUCT(BlueprintType)
+struct CHARACTER_CREATOR_API FInventoryRow
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
+	TObjectPtr<UItemData> Item = nullptr;
+
+	/** Null for material stacks - materials have no per-copy identity. */
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
+	TObjectPtr<UItemInstance> Instance = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
+	int32 Count = 0;
+
+	FInventoryRow() = default;
+
+	FInventoryRow(UItemData* InItem, UItemInstance* InInstance, int32 InCount)
+		: Item(InItem), Instance(InInstance), Count(InCount) {}
+};
+
 UCLASS(ClassGroup = (RPG), meta = (BlueprintSpawnableComponent))
 class CHARACTER_CREATOR_API UInventoryComponent : public UActorComponent
 {
@@ -77,6 +123,23 @@ public:
 	/** Returned by value - Blueprint-exposed functions cannot return const references. */
 	UFUNCTION(BlueprintPure, Category = "Inventory")
 	TArray<UItemInstance*> GetGearBag() const;
+
+	// --- UI views (step 6) ---------------------------------------------------
+
+	/**
+	 * One tab's worth of bag contents, gear and materials in a single ordered list.
+	 *
+	 * The grid mixes unique gear instances with stacked materials, so the widget needs one
+	 * row type covering both rather than zipping two arrays in Blueprint. Gear rows carry
+	 * an Instance and Count 1; material rows carry a null Instance and the stack size.
+	 * Ordering is gear first (bag order), then materials - matching the design's reference grid.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Inventory|UI")
+	TArray<FInventoryRow> GetRowsForTab(EItemTab Tab) const;
+
+	/** Does this item belong under the given tab? Exposed so the UI can badge counts per tab. */
+	UFUNCTION(BlueprintPure, Category = "Inventory|UI")
+	static bool ItemMatchesTab(const UItemData* Item, EItemTab Tab);
 
 	// --- materials -----------------------------------------------------------
 

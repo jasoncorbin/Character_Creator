@@ -1,23 +1,154 @@
 # Handoff — RPG Character project
 
-> ## ▶ START HERE (session 5 — written end of 2026-08-02, session 4)
+> ## ▶ START HERE (session 6 — written end of 2026-08-02, session 5)
 >
-> **STEPS 1–5 ARE DONE AND PIE-VERIFIED.** Session 4 closed out the `BPC_PlayerStats` bug and all
-> of step 5.
+> **STEPS 1–5 DONE + PIE-VERIFIED · ON UE 5.8.1 · STEP 6 STARTED — 6A IS DONE.**
+> Session 5 spent itself proving what the new tooling can do, then used it: fonts imported,
+> the UI style foundation built and verified, and step 6 re-scoped from **XL down to L**.
 >
-> ### ⛔ NEXT IS THE UE 5.8 UPGRADE — NOT STEP 6
-> Locked decision, reaffirmed by the user 2026-08-02: the upgrade happens **after step 5, before
-> step 6**. Step 6 is the XL Inventory/Character screen; start it on the engine we intend to finish
-> on rather than migrating mid-build.
+> ### ☠☠ FIRST TWO THINGS, IN THIS ORDER
 >
-> - Project is on **5.7.4**; **5.8.1 is already installed** at `E:\UE4 Projects\_UE4\UE_5.8`.
-> - **Two prerequisites, both on a COPY first:** (1) `Plugins/MCPUnreal` must be proven to rebuild
->   against 5.8 — if it doesn't, we lose the working MCP toolchain mid-project; (2) the
->   `Character_Creator` C++ module must build clean on 5.8. Editor closed for both.
-> - Assets resaved in 5.8 **cannot go back** to 5.7. Branch + backup first.
-> - Motivating detail: Epic's official in-editor MCP (`ModelContextProtocol`) is **5.8-only** —
->   verified by `find`ing the engine tree; zero hits in 5.7, present with prebuilt DLLs in 5.8.
->   That is what `127.0.0.1:8000/mcp` in `.mcp.json` points at, and why it has never connected.
+> **1. START THE UE EDITOR *BEFORE* CLAUDE CODE — and only ONE instance.**
+> Epic's MCP server is HTTP hosted *inside* the editor process, and Claude Code attaches MCP
+> servers once at startup and never retries. Wrong order = no `unreal-mcp` tools all session.
+> Session 5 also hit **five** editors running at once (repeated launch clicks while 5.8 loaded);
+> the two MCP servers ended up on *different* processes, which would have corrupted asset saves
+> had it not been caught. **Verify before doing any work:**
+> ```powershell
+> Get-CimInstance Win32_Process -Filter "Name='UnrealEditor.exe'" | Select ProcessId, CreationDate
+> netstat -ano | findstr ":8000 :8090" | findstr LISTENING   # BOTH must show the SAME PID
+> ```
+> MCPUnreal (stdio, port 8090) auto-recovers across editor restarts. Epic's (8000) may need
+> `/mcp reconnect all` — **focus the Claude Code pane first**, or it no-ops with *"the terminal is
+> still starting up or is showing another view"*. That message is a UI complaint, **not** a
+> failure — check `status` before believing it.
+>
+> **2. Confirm the style config survived the cold start.** This is the one thing session 5 could
+> not verify:
+> ```
+> unreal.RPGUIStyle.is_style_configured()   # must be True
+> ```
+> If the inventory UI ever renders **magenta**, that is deliberate — it means `URPGUISettings`
+> did not resolve its assets. Suspect the `Config/DefaultGame.ini` keys, **not** the C++.
+>
+> ### ▶ NEXT IS 6B — `WBP_RPG_ItemCell`
+> The first widget built end-to-end with the proven toolset. Everything needed is in place:
+> `URPGUIStyle` for colour/type/metrics, `UMGToolSet` for the tree, `write_graph_dsl` for logic.
+> Read `docs/ItemsLoot_PortPlan.md` § "Step 6 — RE-SCOPE" for the 6A–6G build order and sizes.
+>
+> ### What session 5 established (all verified, not assumed)
+>
+> | | |
+> |---|---|
+> | **Epic's MCP is a 3-tool gateway** over **56 toolsets** — attaching costs ~3 schemas, not 500 | memory `epic-mcp-gateway` |
+> | **UMG authoring works end to end** — create → add → style → bind → compile → save to disk | memory `epic-mcp-gateway` |
+> | **`write_graph_dsl` works** — graph authoring is scripted; the old "user places nodes, Claude wires pins" pattern is **retired** | memory `blueprint-graph-dsl` |
+> | **Fonts imported** — 6 `FontFace` assets; assign the face **directly**, UFont is unbuildable | memory `rpg-ui-fonts` |
+> | **6A done** — `URPGUIStyle` is the one API; no widget carries a hex, font or spacing literal | memory `rpg-ui-style-foundation` |
+> | **Step 6 re-scoped XL → L** — 6A–6E scripted; only hero preview + polish stay manual | plan § Step 6 |
+>
+> ### Decisions taken this session (do not re-litigate)
+> - **Hero preview = the LIVE PLAYER MODEL** — overrides the plan §7 recommendation. The game is
+>   paused while the screen is open, so expect a *frozen pose*, not an idle loop. If that reads
+>   badly the fix is framing/lighting, **not** reopening the decision.
+> - **Chrome colours live in a NEW `DA_RPGUITheme`**, not in `DA_RarityPalette` — chrome is shared
+>   by both palette sets, so it is orthogonal to the Candy Warm / Classic Bright swap.
+> - **Stats row: Damage is live, Armor/HP/Stamina are PLACEHOLDERS.** Discovered mid-session that
+>   only 1 of the 4 designed stats exists: `BP_RPG_PlayerCharacter` has **no** `BPC_PlayerStats`
+>   and no health at all, and `UItemData` has **no armour value** (`Armor` in `RPGItemTypes.h` is
+>   an equip-*slot*). A real stats layer is its own future step. **`BPC_PlayerStats` stays frozen** —
+>   the session briefly opened it for edits, then the placeholder decision made that moot.
+>
+> ### Loose ends carried into session 6
+> - ⚠ **`Config/DefaultGame.ini` `[RPGUISettings]` load is unverified** — see item 2 above.
+> - **Nunito 800** is in the design but only 400/600/700 statics were cut, so 800 renders as Bold.
+>   Cheap to fix — the instancer recipe is in `Art_Source/Fonts/README.md`.
+> - **A stray 0-byte file named `claude`** sits in the project root (created 17:48 during CLI
+>   troubleshooting). Untracked, harmless, unattributed — delete it whenever.
+> - Deferred, untouched: **enemy death anim doesn't hold** (`.claude/bugs_to_fix.md` § RPG Bug 4).
+>
+> ### Environment notes
+> - Engine is **`E:\UE4 Projects\_UE4\UE_5.8`**. Read engine headers rather than inferring APIs.
+> - `claude` now resolves in a terminal — the WinGet **Links** shim dir is on PATH but **empty**,
+>   so the package dir was added directly (memory `winget-links-empty`). Affects every winget CLI.
+> - **Builds need the editor CLOSED** (~16 min for the 6A batch). Closing it kills **both** MCP
+>   servers, so batch C++ work: session 5 shipped 6A *and* 6E's `GetRowsForTab` in one build.
+>
+> ---
+>
+> ## Previous START HERE (session 5 — written end of 2026-08-02, session 4)
+>
+> ### ✅ UE 5.8 UPGRADE IS DONE (2026-08-02)
+> Engine: **5.8.1-56057345+++UE5+Release-5.8**. Validated on a full copy first, then applied.
+> Full record: `.claude/task_UE58_Upgrade.md`.
+>
+> - **The one code change:** `DefaultBuildSettings` **V6 → V7** in both `Source/*.Target.cs`.
+>   Mandatory — 5.8 rejects V6 for targets sharing build products with the installed engine.
+>   V7 also flips ReturnType/Dangling/UnreachableCode warnings to **Error** and sets
+>   `FPSemantics = Precise` for Editor targets. Our code compiles clean under all of it.
+> - Both `MCPUnreal` and the `Character_Creator` module build and run on 5.8.
+> - Everything survived: the C++ reparent, the `BPC_PlayerStats` rewire, the whole loot system.
+>
+> ### ▶ NEXT IS STEP 6 — Inventory / Character screen (XL)
+> **Re-read the plan's step-6 risk note before starting — it is now WRONG.** It says `WidgetTree`
+> isn't scriptable so the screen must be hand-authored in the designer. Epic's MCP ships
+> **`UMGToolSet` with 23 tools** (`CreateWidgetBlueprint`, `AddWidget`, `MoveWidget`, `WrapWidgets`,
+> `SetNamedSlotContent`, `BindToEventProperty`, `CompileWidgetBlueprint`…). Step 6 is now largely
+> scriptable. Re-scope it before estimating.
+>
+> ### MCP: run BOTH servers, they are complementary
+> Verified coexisting in **one** editor process (PID owns both ports) — **Epic's on 8000,
+> MCPUnreal on 8090**. Full capability inventory in memory `epic-mcp-gateway.md`.
+>
+> #### ☠ START THE UE EDITOR **BEFORE** CLAUDE CODE
+> Epic's server is **HTTP hosted inside the editor process**, and Claude Code attaches MCP servers
+> **once at startup and never retries**. Get the order wrong and the `unreal-mcp` tools are absent
+> for the whole session even though `netstat` shows 8000 listening and a raw handshake succeeds —
+> which is exactly what happened at the start of session 5. Recovery, cheapest first:
+> `/mcp reconnect all` (**focus the Claude Code pane first** — it no-ops with *"the terminal is
+> still starting up or is showing another view"* otherwise), else quit and resume the thread with
+> `claude --continue` from the project dir. MCPUnreal is immune — it's **stdio**, Claude Code
+> spawns it itself, so it tolerates the editor being absent.
+>
+> #### It is a GATEWAY, not a flat tool list (verified live 2026-08-02)
+> `tools/list` returns exactly **3** tools — `list_toolsets` (→ **56** toolsets),
+> `describe_toolset(name)`, `call_tool(toolset_name, tool_name, arguments)`. So attaching it costs
+> ~3 tool schemas of context, **not** 500+; there is no context argument against enabling it.
+> Discovery is 2 calls deep, and `describe_toolset` output is big (UMGToolSet ≈58 KB,
+> BlueprintTools ≈72 KB) — parse it to a file, don't read it raw.
+>
+> - **`UMGToolSet.UMGToolSet` — 23 tools**, confirmed by enumeration, not docs: `CreateWidgetBlueprint`,
+>   `AddWidget`, `MoveWidget`, `WrapWidgets`, `SetNamedSlotContent`, `BindToEventProperty`,
+>   `RenameWidget`, `ToggleWidgetAsVariable`, `CompileWidgetBlueprint`, `GetWidgets`,
+>   `GetNamedSlots`, `ListWidgetClasses`, `ListWidgetBlueprints`, `GetWidgetTreeDepth`,
+>   `ReplaceWidgetWith{Template,NamedSlot,Child}`, `Add/Move/RemoveUIComponent`…
+>   Live smoke test passed: `ListWidgetBlueprints("/Game/RPG")` → `/Game/RPG/UI/WBP_RangedReticle`.
+> - **`editor_toolset.toolsets.blueprint.BlueprintTools` — 53 tools**: graph DSL
+>   (`read_graph_dsl`/`write_graph_dsl`/`get_graph_dsl_docs`), a *configured* `create_node`,
+>   `set_node_position`, `arrange_nodes`, `add_event_dispatcher`, `add_object_variable`/
+>   `add_struct_variable`, `add_component_bound_event`. Removes most of the "user places the node,
+>   Claude wires the pins" friction that shaped sessions 1–4.
+> - Also present: GAS, Niagara (5 sets), Sequencer/ControlRig (8 sets), PCG, StateTree,
+>   BehaviorTree, GameplayTags, SlateInspector, AutomationTest, ConfigSettings, Plugins, GameFeatures.
+>
+> #### ⚠ Two traps before you use it
+> 1. ☠ **`BlueprintTools.remove_function_graph` exists on Epic's side too.** MCPUnreal's equivalent
+>    **hard-crashes the editor** (see below). Do NOT assume Epic's is safer — test on a throwaway
+>    asset first, or leave it alone.
+> 2. **UMGToolSet's own docs make `ObjectTools.list_properties(widget)` MANDATORY before
+>    `set_properties`.** Property names vary per widget class and cannot be guessed; skipping it
+>    makes `set_properties` **silently** fail or write the wrong property.
+>
+> #### MCPUnreal is still required
+> Epic's `ProgrammaticToolset` is a **sandbox** limited to `json, math, datetime, copy, re, time` —
+> **no `unreal` module** — and its `DataAssetTools` has exactly one tool (`create`). Data-asset
+> population, CDO reads, `SubobjectDataSubsystem` work and disk-level save verification all still
+> need MCPUnreal.
+>
+> #### Raw-HTTP fallback (proven, if it isn't attached and you don't want to restart)
+> POST `initialize` → keep the **`Mcp-Session-Id` response header** → POST
+> `notifications/initialized` → then `tools/call`. Works end to end; clunky (manual session-id
+> juggling, no permission-prompt integration, hand-parsed results) so it's a stopgap, not the fix.
 >
 > ### Deferred, do NOT action before the upgrade
 > **Enemy death anim doesn't hold — the corpse stands back up.** Worked before the Unity port.
@@ -36,7 +167,85 @@
 >
 > ---
 >
-> ## Previous START HERE (session 4 — written end of 2026-08-01, session 3)
+> ## Session 5 (2026-08-02) — tooling proven, fonts imported, 6A built, step 6 re-scoped
+
+No gameplay changed this session. The work was establishing what the UE 5.8 tooling can actually
+do — every claim below was **run**, not read off a doc — and then spending that on step 6's
+foundation. Detail lives in memory; this is the index.
+
+### 1. Epic's in-editor MCP — it is a GATEWAY (memory `epic-mcp-gateway`)
+`tools/list` returns **3** tools (`list_toolsets`, `describe_toolset`, `call_tool`) over **56
+toolsets**. So attaching it costs ~3 schemas, not 500+ — there was never a context argument
+against enabling it. `describe_toolset` output is large (UMGToolSet ≈58 KB, BlueprintTools ≈72 KB);
+parse to a file, never read raw.
+
+**The full UMG authoring loop is proven:** `CreateWidgetBlueprint` → `AddWidget` → `list_properties`
+→ `set_properties` → `BindToEventProperty` → `CompileWidgetBlueprint` → `save_assets` → **verified
+on disk**, then deleted with git confirming no residue.
+- `list_properties` is **per-CLASS and cacheable** (two `Image` widgets returned byte-identical
+  output) — the "mandatory round-trip" is ~1 call per widget *class*, ~10–15 for a whole screen.
+- It returns a full nested **JSON Schema**, not a name list, so `set_properties` is self-documenting.
+- ☠ `BindToEventProperty.propertyName` is the **widget variable** name (`GoButton`), not the
+  delegate. ☠ `AssetTools.is_dirty` **false-positives** — it said dirty after a save that
+  demonstrably reached disk. Disk stays ground truth.
+
+### 2. `write_graph_dsl` works (memory `blueprint-graph-dsl`)
+Authored a branch + bool get/set + two `SetText` calls, compiled clean, saved. **This retires the
+sessions 1–4 "user places the node, Claude wires the pins" pattern.** Writes are additive per
+event, not destructive. The difficulty is entirely node-id spellings — bool vars drop the leading
+`b`, widget vars live under `Variables|<BPName>|`, and ☠ **read output is NOT valid write input**.
+
+### 3. Fonts (memory `rpg-ui-fonts`)
+6 `FontFace` assets in `/Game/RPG/UI/Fonts/`; sources + OFL licences in `Art_Source/Fonts/`.
+- ☠ **Never import the variable TTFs** — Google ships both families variable-only and UE uses only
+  the default instance, which is **wght 300 (Fredoka) / 200 (Nunito)**. You would get Light/
+  ExtraLight labelled Regular. Statics cut at 400/600/700 with `fontTools.varLib.instancer`.
+- ☠ **`Font` (UFont) assets are unbuildable from script on BOTH servers** — Python lacks
+  `unreal.Typeface`/`TypefaceEntry`/`FontData`; Epic's `ObjectTools` doesn't expose
+  `compositeFont.defaultTypeface`. **Assign the `FontFace` directly to `font.fontObject`** — verified.
+- ⚠ **`execute_script` returns `{"success": true}` even when the script throws.** Always
+  try/except + write the traceback to a result file.
+
+### 4. Step 6A — the UI style foundation (memory `rpg-ui-style-foundation`)
+**5 new C++ files**, built clean:
+
+| File | What |
+|---|---|
+| `UI/RPGUITheme.h/.cpp` | `URPGUITheme` — chrome, 13-role type scale (`ERPGTextRole`), layout metrics |
+| `UI/RPGUISettings.h/.cpp` | `UDeveloperSettings` resolving palette + theme (Project Settings → Game → "RPG UI") |
+| `UI/RPGUIStyle.h/.cpp` | The widget-facing `UBlueprintFunctionLibrary` — **the only thing widgets call** |
+
+Plus `UInventoryComponent::GetRowsForTab(EItemTab)` + `FInventoryRow`, batched into the same build
+so 6E wouldn't force a second editor-close cycle.
+
+**Verified through the widget-facing path** (not just "the asset saved"): `IsStyleConfigured()`
+true, Legendary `#FF9A3D`, ink `#4B57C9`, button `#5BD08A`, slot 58 / 5 cols / gap 14,
+ScreenTitle→Fredoka_SemiBold@22, SlotLabel→Nunito_Bold@7, locked `#D9D3C6`.
+
+Design points worth keeping: **missing style assets render MAGENTA on purpose** (an unassigned
+setting must not look like a design choice); `ERPGStat` is deliberately **not** `EEquipSlot`;
+the Armor tab filters on **Slot** not weapon category (a shield is off-hand); material rows are
+**sorted by Id** because `TMap` order is unstable and the grid would reshuffle between opens.
+
+`URPGUISettings` also fixes a pre-existing bug — `Palette` was a per-actor `TObjectPtr` set by
+hand, which is why `AWorldItem::Palette` was unset on all 4 pickups and tinted white.
+
+**Traps:** `URPGUISettings` is **not** in the Python `unreal` module (reach via `find_object` +
+`get_default_object`), and for a non-Python-exposed class `get_editor_property` falls back to raw
+**FName** lookup — case-insensitive but **not** snake_case-aware, so `RarityPalette` works and
+`rarity_palette` does not. A `TSoftObjectPtr` wants the loaded **object**, not an `FSoftObjectPath`.
+No config-persist method is reachable from Python, so `Config/DefaultGame.ini` was written by hand.
+
+### 5. Build note
+`SlateCore` + `DeveloperSettings` moved to **Public** deps (public headers expose `FSlateFontInfo`
+and derive from `UDeveloperSettings`). Clean build, ~16 min — UBT excluded the 4 changed files from
+the unity build. Only pre-existing warnings (MSVC 14.51 not preferred, MCPUnreal/Fab, and an
+engine-side `C4996` on `APawn::GetMovementBase` that V7 did **not** promote to an error — worth
+remembering at the next engine bump).
+
+---
+
+## Previous START HERE (session 4 — written end of 2026-08-01, session 3)
 >
 > **STEPS 1–4 ARE DONE.** Step 4 — the step the plan calls the fiddliest and highest-risk — is
 > complete and **PIE-verified end to end**. `BP_RPG_PlayerCharacter` now inherits from a C++ base.
@@ -70,7 +279,9 @@
 > log spam over dead code, **not a broken feature**. Root cause of the spam: a `Select` evaluates all
 > option chains eagerly, and `BP_RPG_Enemy` has `isPlayer=false` (CDO default, never assigned — it is
 > a *duplicate* of `Dummy`, not a subclass, so `Cast To Dummy` fails) with `As Dummy` null.
-> **FIXED 2026-08-02** — see `.claude/task_PlayerStats_HealthBar_Fix.md`.
+> **FIXED 2026-08-02.** (The `task_PlayerStats_HealthBar_Fix.md` working doc was deleted once the
+> fix landed — its status header said "waiting on 3 user-placed nodes" and had become misleading.
+> Recover from git history if the detail is ever needed.)
 >
 > **Second, latent defect:** a Blueprint `Select` evaluates **ALL** option chains eagerly, so the
 > Dummy chain is dereferenced even when `isPlayer` is true. **A `Select` can never be a null guard.**
